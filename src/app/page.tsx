@@ -97,7 +97,7 @@ export default function Home() {
             className="relative z-10 max-w-4xl"
           >
             <h1 className="text-6xl md:text-7xl font-serif font-bold mb-6 bg-gradient-to-r from-electric-gold via-cyber-teal to-electric-gold bg-clip-text text-transparent leading-tight">
-              Your Artist Archetype
+              Your Musician Archetype
               <br />
               <span className="text-5xl md:text-6xl">Revealed</span>
             </h1>
@@ -108,7 +108,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed"
             >
-              The secret personality framework that successful musicians use to build their careers.
+              The secret personality framework that successful musicians use to build profitable careers and find their unique path to success.
             </motion.p>
 
             <motion.div
@@ -141,7 +141,7 @@ export default function Home() {
             >
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-electric-gold" />
-                <span>2,400+ Artists Transformed</span>
+                <span>2,400+ Musicians Transformed</span>
               </div>
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-cyber-teal" />
@@ -166,7 +166,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-4xl md:text-5xl font-serif font-bold mb-8 text-electric-gold"
             >
-              The Brutal Truth About Artist Casting
+              The Brutal Truth About Music Careers
             </motion.h2>
 
             <motion.div
@@ -176,23 +176,23 @@ export default function Home() {
               className="grid md:grid-cols-3 gap-8 mb-12"
             >
               <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
-                <h3 className="text-xl font-bold text-red-400 mb-3">95% Get Rejected</h3>
+                <h3 className="text-xl font-bold text-red-400 mb-3">95% Stay Broke</h3>
                 <p className="text-gray-300">
-                  Most artists audition without knowing their authentic type, leading to mismatched roles and constant rejection.
+                  Most musicians chase every opportunity without knowing their authentic archetype, leading to scattered efforts and financial struggle.
                 </p>
               </div>
               
               <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
                 <h3 className="text-xl font-bold text-red-400 mb-3">Identity Crisis</h3>
                 <p className="text-gray-300">
-                  You're told to "just be yourself" but have no framework for understanding your artistic identity.
+                  You're told to "find your sound" but have no framework for understanding your musical identity and market position.
                 </p>
               </div>
               
               <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
-                <h3 className="text-xl font-bold text-red-400 mb-3">Wrong Opportunities</h3>
+                <h3 className="text-xl font-bold text-red-400 mb-3">Wrong Strategy</h3>
                 <p className="text-gray-300">
-                  Chasing every audition instead of pursuing roles that align with your natural archetype.
+                  Copying other artists' success formulas instead of building revenue streams that align with your natural archetype.
                 </p>
               </div>
             </motion.div>
@@ -203,9 +203,9 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.6 }}
               className="text-xl text-gray-300 leading-relaxed"
             >
-              The casting directors already know what they want. The question is:
+              The music industry rewards musicians who know exactly who they are. The question is:
               <span className="block text-2xl font-bold text-cyber-teal mt-4">
-                Do you know who you are?
+                What's your unique path to profit?
               </span>
             </motion.p>
           </div>
@@ -226,7 +226,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-4xl md:text-5xl font-serif font-bold mb-8 text-electric-gold"
             >
-              The Artist Archetype System
+              The Musician Archetype System
             </motion.h2>
 
             <motion.p
@@ -236,8 +236,8 @@ export default function Home() {
               className="text-xl text-gray-300 mb-12 leading-relaxed"
             >
               A scientific assessment that identifies your Primary and Secondary Archetypes,
-              giving you a clear blueprint for which roles to pursue, how to brand yourself,
-              and what makes you uniquely castable.
+              giving you a clear blueprint for which revenue streams to pursue, how to brand yourself,
+              and what makes you uniquely profitable as a musician.
             </motion.p>
 
             <motion.div
@@ -250,17 +250,17 @@ export default function Home() {
                 <CheckCircle className="w-12 h-12 text-cyber-teal mb-4 mx-auto" />
                 <h3 className="text-2xl font-bold mb-4">Know Your Type</h3>
                 <p className="text-gray-300">
-                  Discover your Primary and Secondary Archetypes from 12 distinct artist personalities,
-                  each with specific strengths, ideal roles, and casting opportunities.
+                  Discover your Primary and Secondary Archetypes from 6 distinct musician personalities,
+                  each with specific strengths, ideal opportunities, and revenue strategies.
                 </p>
               </div>
 
               <div className="bg-gradient-to-br from-electric-gold/20 to-cyber-teal/20 p-8 rounded-lg border border-electric-gold/30">
                 <Users className="w-12 h-12 text-electric-gold mb-4 mx-auto" />
-                <h3 className="text-2xl font-bold mb-4">Get Cast More</h3>
+                <h3 className="text-2xl font-bold mb-4">Make More Money</h3>
                 <p className="text-gray-300">
-                  Target roles that match your archetype, brand yourself authentically,
-                  and dramatically increase your callback rate.
+                  Focus on revenue streams that match your archetype, build your authentic brand,
+                  and dramatically increase your income potential.
                 </p>
               </div>
             </motion.div>
@@ -282,7 +282,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-3xl md:text-4xl font-serif font-bold mb-12 text-electric-gold"
             >
-              Trusted by Working Artists
+              Trusted by Working Musicians
             </motion.h2>
 
             <motion.div
@@ -296,9 +296,9 @@ export default function Home() {
                   {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
                 </div>
                 <p className="text-gray-300 mb-4">
-                  "Finally understand why I was getting typecast. Now I pursue the right roles for my Rebel archetype and book consistently."
+                  "Finally understand why I was struggling financially. Now I focus on teaching and session work as The Virtuoso and my income tripled."
                 </p>
-                <p className="text-cyber-teal font-semibold">- Sarah M., Theater Actor</p>
+                <p className="text-cyber-teal font-semibold">- Sarah M., Classical Guitarist</p>
               </div>
 
               <div className="bg-gray-800/50 p-6 rounded-lg">
@@ -306,9 +306,9 @@ export default function Home() {
                   {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
                 </div>
                 <p className="text-gray-300 mb-4">
-                  "Discovered I'm a Sage/Lover combination. Changed my headshots and got 3 callbacks in 2 weeks."
+                  "Discovered I'm a Producer/Collaborator combination. Changed my approach to networking and booked 3 major projects in a month."
                 </p>
-                <p className="text-cyber-teal font-semibold">- Marcus T., Film Actor</p>
+                <p className="text-cyber-teal font-semibold">- Marcus T., Hip-Hop Producer</p>
               </div>
 
               <div className="bg-gray-800/50 p-6 rounded-lg">
@@ -316,9 +316,9 @@ export default function Home() {
                   {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
                 </div>
                 <p className="text-gray-300 mb-4">
-                  "This system revealed I was auditioning for the wrong character types. Now I know exactly who I am."
+                  "This system revealed I was chasing the wrong revenue streams. Now I know my path as The Performer and bookings are consistent."
                 </p>
-                <p className="text-cyber-teal font-semibold">- Alex K., Voice Artist</p>
+                <p className="text-cyber-teal font-semibold">- Alex K., Singer-Songwriter</p>
               </div>
             </motion.div>
           </div>
@@ -339,7 +339,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-4xl md:text-5xl font-serif font-bold mb-6 text-obsidian-black"
             >
-              Ready to Discover Your Artist Archetype?
+              Ready to Discover Your Musician Archetype?
             </motion.h2>
 
             <motion.p
@@ -348,9 +348,9 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-xl text-obsidian-black/80 mb-8 leading-relaxed"
             >
-              Take our 5-minute assessment and get your detailed Artist Archetype Report
+              Take our 5-minute assessment and get your detailed Musician Archetype Report
               <br />
-              <span className="font-bold">Complete with role recommendations and branding strategy</span>
+              <span className="font-bold">Complete with revenue strategies and brand positioning</span>
             </motion.p>
 
             <motion.div
@@ -374,7 +374,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.8 }}
               className="text-obsidian-black/70 mt-6 text-sm"
             >
-              ⚡ 5-minute assessment • 🎯 Instant results • 💎 Detailed report: $19
+              ⚡ 5-minute assessment • 🎯 Instant results • 💎 Detailed report: $9.99
               <br />
               <span className="text-xs">
                 <Link href="/hexaco" className="underline hover:text-obsidian-black">

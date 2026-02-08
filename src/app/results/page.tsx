@@ -189,9 +189,9 @@ function Results() {
                   {/* Pricing */}
                   <div className="mb-6">
                     <div className="flex items-center justify-center gap-4 mb-2">
-                      <span className="text-2xl text-gray-400 line-through">$97</span>
-                      <span className="text-4xl font-bold text-electric-gold">$19</span>
-                      <span className="bg-red-600 text-white px-2 py-1 rounded text-sm font-bold">80% OFF</span>
+                      <span className="text-2xl text-gray-400 line-through">$47</span>
+                      <span className="text-4xl font-bold text-electric-gold">$9.99</span>
+                      <span className="bg-red-600 text-white px-2 py-1 rounded text-sm font-bold">79% OFF</span>
                     </div>
                     <p className="text-gray-400 text-sm">Limited time launch pricing</p>
                   </div>
@@ -213,7 +213,7 @@ function Results() {
                       ) : (
                         <>
                           <Unlock className="w-5 h-5" />
-                          Unlock Full Report - $19
+                          Unlock Full Report - $9.99
                         </>
                       )}
                     </motion.button>
