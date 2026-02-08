@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2026-01-28.clover",
 });
 
 export async function POST(request: Request) {
@@ -15,16 +15,18 @@ export async function POST(request: Request) {
         price_data: {
           currency: "usd",
           product_data: {
-            name: "The Archetype Protocol - Full Dossier",
-            description: `Primary: ${archetypes[0]}, Secondary: ${archetypes[1]}, Tertiary: ${archetypes[2]}`,
+            name: "Artist Archetype - Complete Report",
+            description: `Unlock your detailed ${archetypes[0]}/${archetypes[1]} archetype analysis with career strategy and 15-page PDF report`,
           },
-          unit_amount: 2700,
+          unit_amount: 1900,
         },
         quantity: 1,
       },
     ],
     mode: "payment",
-    success_url: `${request.headers.get("origin")}/success`,
+    success_url: `${request.headers.get("origin")}/success?archetypes=${archetypes.join(
+      ","
+    )}`,
     cancel_url: `${request.headers.get("origin")}/results?archetypes=${archetypes.join(
       ","
     )}`,
