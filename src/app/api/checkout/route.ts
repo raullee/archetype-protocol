@@ -46,8 +46,8 @@ export async function POST(request: Request) {
         },
       ],
       mode: "payment",
-      success_url: `${request.headers.get("origin")}/success?archetypes=${archetypes.join(",")}&tier=${tier}`,
-      cancel_url: `${request.headers.get("origin")}/results?a=${archetypes.join(",")}`,
+      success_url: `${request.headers.get("origin") || "https://archetype-protocol.vercel.app"}/success?archetypes=${archetypes.join(",")}&tier=${tier}`,
+      cancel_url: `${request.headers.get("origin") || "https://archetype-protocol.vercel.app"}/results?a=${archetypes.join(",")}`,
       metadata: {
         archetypes: archetypes.join(","),
         tier,
@@ -56,9 +56,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Checkout error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Checkout error:", msg);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: "Failed to create checkout session", detail: msg },
       { status: 500 }
     );
   }
