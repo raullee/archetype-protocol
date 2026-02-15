@@ -8,15 +8,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
-        "obsidian-black": "#0B0C10",
-        "alabaster-white": "#F1F1F1",
-        "electric-gold": "#C5A059",
-        "cyber-teal": "#45A29E",
-      },
       fontFamily: {
-        serif: ["Playfair Display", "serif"],
-        sans: ["Inter", "sans-serif"],
+        serif: ["var(--font-playfair-display)", "serif"],
+        sans: ["var(--font-inter)", "sans-serif"],
       },
     },
   },
