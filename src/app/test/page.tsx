@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { QUESTIONS } from "@/lib/questions";
 import { Archetype } from "@/lib/archetypes";
-import { Loader2 } from "lucide-react";
 
 export default function QuizPage() {
   const router = useRouter();
@@ -13,6 +12,7 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState<Archetype[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [direction, setDirection] = useState(1);
+  const startTime = useRef(Date.now());
 
   const question = QUESTIONS[currentQ];
   const progress = ((currentQ) / QUESTIONS.length) * 100;
@@ -26,9 +26,10 @@ export default function QuizPage() {
       setCurrentQ((prev) => prev + 1);
     } else {
       setIsAnalyzing(true);
+      const elapsed = Math.round((Date.now() - startTime.current) / 1000);
       setTimeout(() => {
         const encoded = encodeURIComponent(newAnswers.join(","));
-        router.push(`/results?a=${encoded}`);
+        router.push(`/results?a=${encoded}&t=${elapsed}`);
       }, 2500);
     }
   }, [answers, currentQ, router]);
@@ -36,11 +37,7 @@ export default function QuizPage() {
   if (isAnalyzing) {
     return (
       <div className="min-h-screen bg-[#0A0A0B] flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
           <div className="relative w-20 h-20 mx-auto mb-8">
             <motion.div
               animate={{ rotate: 360 }}
@@ -55,20 +52,10 @@ export default function QuizPage() {
               />
             </div>
           </div>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="font-serif text-2xl mb-2"
-          >
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="font-serif text-2xl mb-2">
             Analyzing your responses...
           </motion.p>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="text-zinc-500 text-sm"
-          >
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="text-zinc-500 text-sm">
             Mapping to Jungian archetypes
           </motion.p>
         </motion.div>
@@ -84,7 +71,7 @@ export default function QuizPage() {
           className="h-full bg-gradient-to-r from-[#6366F1] to-[#22D3EE]"
           initial={{ width: 0 }}
           animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
         />
       </div>
 
@@ -103,7 +90,7 @@ export default function QuizPage() {
               initial={{ opacity: 0, x: 60 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -60 }}
-              transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
             >
               <p className="text-sm text-[#6366F1] font-medium mb-3 uppercase tracking-wider">
                 {question.subtitle}
