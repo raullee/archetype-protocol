@@ -59,9 +59,14 @@ const LOCKED_SECTIONS: Record<Archetype, { title: string; teaser: string; previe
       preview: `Phase 1 (Weeks 1-4): Recognize the core pattern — your tendency to default to your ${a} strength even when the situation calls for something different. The specific daily practice that unlocks growth for ${a}s involves a 5-minute exercise that rewires your instinctive response to...`,
     },
     {
-      title: "Decision-Making Style",
+      title: "Decision-Making Style", 
       teaser: `You make 73% of your decisions using a pattern that...`,
       preview: `${a}s process decisions through a distinctive framework that prioritizes ${a === "Sage" ? "logical analysis" : a === "Ruler" ? "control and outcome certainty" : a === "Caregiver" ? "impact on others" : a === "Explorer" ? "novelty and freedom" : a === "Creator" ? "aesthetic and originality" : a === "Hero" ? "moral alignment" : "instinct"} over competing factors. This creates a blind spot in situations requiring rapid emotional assessment. Your decision accuracy drops by an estimated 40% when...`,
+    },
+    {
+      title: "✨ Character Arc Engine",
+      teaser: `Your musical hero's journey follows a predictable pattern that...`,
+      preview: `Your ${a} archetype follows a specific narrative arc in the creative life. Most ${a} musicians experience breakthrough moments when they realize their greatest strength can become their greatest weakness. Your character arc reveals the three major creative phases you'll move through, the shadow you must integrate, and the specific way your personality type achieves artistic mastery. Combined with HEXACO personality data, this creates a complete roadmap for...`,
     },
   ];
   const all: Record<string, { title: string; teaser: string; preview: string }[]> = {};
@@ -645,13 +650,32 @@ function ResultsContent() {
           </div>
         </section>
 
-        {/* HEXACO CTA */}
+        {/* HEXACO CTA - Enhanced */}
         <section className="pb-20 px-6">
-          <div className="max-w-2xl mx-auto text-center">
-            <p className="text-zinc-600 text-sm mb-2">Want even deeper insight?</p>
-            <a href="https://hexaco-test-app.vercel.app" target="_blank" rel="noopener" className="inline-flex items-center gap-2 text-[#22D3EE] hover:text-[#06B6D4] font-medium transition-colors">
-              Take the HEXACO Deep Personality Analysis <ArrowRight className="w-4 h-4" />
-            </a>
+          <div className="max-w-2xl mx-auto">
+            <div className="glass-card rounded-2xl p-8 text-center border-[#22D3EE]/20">
+              <h3 className="font-serif text-xl font-bold mb-4">Ready for Scientific Precision?</h3>
+              <p className="text-zinc-400 mb-6">
+                Your {primary.archetype} archetype is just the beginning. Get your complete creative personality mapped with 60 research-backed questions.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-xs">
+                <div className="p-3 bg-white/5 rounded-lg">
+                  <div className="text-[#22D3EE] font-medium mb-1">24 Trait Breakdown</div>
+                  <div className="text-zinc-600">Facet-level analysis of creative style</div>
+                </div>
+                <div className="p-3 bg-white/5 rounded-lg">
+                  <div className="text-[#22D3EE] font-medium mb-1">Performance Insights</div>
+                  <div className="text-zinc-600">Stage presence & collaboration style</div>
+                </div>
+                <div className="p-3 bg-white/5 rounded-lg">
+                  <div className="text-[#22D3EE] font-medium mb-1">Character Arc Engine</div>
+                  <div className="text-zinc-600">Your artistic hero's journey mapped</div>
+                </div>
+              </div>
+              <a href="https://hexaco-test-app.vercel.app?from=archetype" target="_blank" rel="noopener" className="inline-flex items-center gap-2 bg-[#22D3EE] hover:bg-[#06B6D4] text-black font-medium px-6 py-3 rounded-xl transition-colors">
+                Unlock Your Complete Creative Identity <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
           </div>
         </section>
 
