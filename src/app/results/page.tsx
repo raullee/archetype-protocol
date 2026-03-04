@@ -6,11 +6,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Archetype, ARCHETYPE_DATA } from "@/lib/archetypes";
 import { getTopArchetypes, ArchetypeResult } from "@/utils/calculateArchetype";
 import {
-  Lock, Twitter, MessageCircle, ArrowRight, Copy, Check,
+  Lock, Unlock, Twitter, MessageCircle, ArrowRight, Copy, Check,
   Crown, Palette, Heart, Sun, BookOpen, Compass, Zap, Sparkles,
   Shield, HeartHandshake, Laugh, Users, Loader2, Clock, Timer,
 } from "lucide-react";
 import Link from "next/link";
+import { isVipSession, getVipName, getVipTier } from "@/lib/whitelist";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Crown, Palette, Heart, Sun, BookOpen, Compass, Zap, Sparkles, Shield, HeartHandshake, Laugh, Users,
@@ -302,7 +303,16 @@ function ResultsContent() {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedTier, setSelectedTier] = useState<"basic" | "full" | "couples">("full");
+  const [isVip, setIsVip] = useState(false);
+  const [vipName, setVipName] = useState<string | null>(null);
   const sessionTimer = useSessionTimer();
+
+  useEffect(() => {
+    if (isVipSession() && getVipTier() === "A") {
+      setIsVip(true);
+      setVipName(getVipName());
+    }
+  }, []);
 
   const answersParam = searchParams.get("a") || searchParams.get("archetypes") || "";
   const answers = answersParam.split(",").filter(Boolean) as Archetype[];
@@ -411,10 +421,17 @@ function ResultsContent() {
         {/* Session timer bar */}
         <div className="fixed top-0 left-0 right-0 z-40 bg-[#0A0A0B]/90 backdrop-blur-sm border-b border-white/[0.06]">
           <div className="max-w-3xl mx-auto px-6 py-2 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-zinc-500">
-              <Clock className="w-3 h-3" />
-              <span>Analysis expires in <span className="text-[#F59E0B] font-medium">{sessionTimer}</span></span>
-            </div>
+            {isVip ? (
+              <div className="flex items-center gap-2 text-[#F59E0B]">
+                <Crown className="w-3 h-3" />
+                <span className="font-medium">{vipName} — A-Class VIP Access</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-zinc-500">
+                <Clock className="w-3 h-3" />
+                <span>Analysis expires in <span className="text-[#F59E0B] font-medium">{sessionTimer}</span></span>
+              </div>
+            )}
             {formatQuizTime() && (
               <div className="flex items-center gap-2 text-zinc-600">
                 <Timer className="w-3 h-3" />
@@ -535,120 +552,244 @@ function ResultsContent() {
           </div>
         </section>
 
-        {/* ── LOCKED Sections (curiosity gap) ────────────────────────── */}
+        {/* ── Sections: UNLOCKED for VIP, locked for everyone else ──── */}
         <section className="pb-8 px-6">
           <div className="max-w-2xl mx-auto">
-            <h3 className="text-xs uppercase tracking-[0.2em] text-zinc-600 font-medium mb-6 text-center">Unlock your complete blueprint</h3>
-            <div className="space-y-4">
-              {lockedSections.map((section) => (
-                <div key={section.title} className="glass-card rounded-2xl p-6 relative overflow-hidden group">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold">{section.title}</h3>
-                    <span className="flex items-center gap-1.5 text-xs text-zinc-600 bg-white/[0.03] px-3 py-1 rounded-full">
-                      <Lock className="w-3 h-3" /> LOCKED
-                    </span>
+            {isVip ? (
+              <>
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  <Crown className="w-4 h-4 text-[#F59E0B]" />
+                  <h3 className="text-xs uppercase tracking-[0.2em] text-[#F59E0B] font-medium">
+                    {vipName ? `${vipName}'s` : "Your"} full blueprint — A-class access
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  {/* Relationship Blind Spot */}
+                  <div className="glass-card rounded-2xl p-6 border border-[#6366F1]/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-[#6366F1]">Your Relationship Blind Spot</h3>
+                      <span className="flex items-center gap-1.5 text-xs text-[#22D3EE] bg-[#22D3EE]/10 px-3 py-1 rounded-full">
+                        <Unlock className="w-3 h-3" /> UNLOCKED
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{primary.data.relationshipStyle}</p>
                   </div>
-                  {/* Curiosity gap: visible teaser before blur */}
-                  <p className="text-sm text-zinc-400 leading-relaxed">
-                    <span className="text-zinc-300">{section.teaser.slice(0, 55)}</span>
-                    <span className="blur-[6px] select-none">{section.preview}</span>
-                  </p>
+
+                  {/* Career Alignment */}
+                  <div className="glass-card rounded-2xl p-6 border border-[#22D3EE]/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-[#22D3EE]">Career Alignment Analysis</h3>
+                      <span className="flex items-center gap-1.5 text-xs text-[#22D3EE] bg-[#22D3EE]/10 px-3 py-1 rounded-full">
+                        <Unlock className="w-3 h-3" /> UNLOCKED
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-400 mb-3">Top careers aligned with your {primary.archetype} archetype:</p>
+                    <ul className="space-y-2">
+                      {primary.data.idealCareers.map((c) => (
+                        <li key={c} className="text-zinc-300 text-sm flex items-center gap-2">
+                          <span className="text-[#22D3EE]">&rarr;</span> {c}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Shadow Archetype */}
+                  <div className="glass-card rounded-2xl p-6 border border-[#F59E0B]/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-[#F59E0B]">Your Shadow Archetype</h3>
+                      <span className="flex items-center gap-1.5 text-xs text-[#22D3EE] bg-[#22D3EE]/10 px-3 py-1 rounded-full">
+                        <Unlock className="w-3 h-3" /> UNLOCKED
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{primary.data.shadowSide}</p>
+                  </div>
+
+                  {/* Growth Roadmap */}
+                  <div className="glass-card rounded-2xl p-6 border border-[#A855F7]/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-[#A855F7]">Personal Growth Roadmap</h3>
+                      <span className="flex items-center gap-1.5 text-xs text-[#22D3EE] bg-[#22D3EE]/10 px-3 py-1 rounded-full">
+                        <Unlock className="w-3 h-3" /> UNLOCKED
+                      </span>
+                    </div>
+                    <div className="text-sm text-zinc-300 leading-relaxed space-y-3">
+                      <p><span className="text-[#A855F7] font-medium">Phase 1 — Awareness:</span> Recognize when your {primary.archetype} instinct kicks in as a default response. Your top strength ({primary.data.strengths[0].toLowerCase()}) is powerful, but over-reliance creates blind spots.</p>
+                      <p><span className="text-[#A855F7] font-medium">Phase 2 — Integration:</span> Work on your primary challenge: {primary.data.challenges[0].toLowerCase()}. Practice deliberately choosing a different response in low-stakes situations.</p>
+                      <p><span className="text-[#A855F7] font-medium">Phase 3 — Mastery:</span> Channel your {primary.archetype} energy consciously. The difference between a mature and immature {primary.archetype} is awareness — you&apos;re already ahead by seeing this roadmap.</p>
+                    </div>
+                  </div>
+
+                  {/* Decision-Making Style */}
+                  <div className="glass-card rounded-2xl p-6 border border-[#EC4899]/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-[#EC4899]">Decision-Making Style</h3>
+                      <span className="flex items-center gap-1.5 text-xs text-[#22D3EE] bg-[#22D3EE]/10 px-3 py-1 rounded-full">
+                        <Unlock className="w-3 h-3" /> UNLOCKED
+                      </span>
+                    </div>
+                    <div className="text-sm text-zinc-300 leading-relaxed space-y-3">
+                      <p>As a {primary.archetype}, your decisions are driven by {primary.data.strengths[0].toLowerCase()} and a deep commitment to {primary.data.description.split(".")[0].toLowerCase().replace("you're", "your").replace("you ", "")}.</p>
+                      <p>Where this gets tricky: {primary.data.challenges[1] ? primary.data.challenges[1].toLowerCase() : primary.data.challenges[0].toLowerCase()} can cloud your judgment in high-pressure moments. When stressed, you default to your shadow ({primary.data.shadowSide.split("—")[0].trim().toLowerCase()}) which skews your risk assessment.</p>
+                    </div>
+                  </div>
+
+                  {/* Character Arc Engine */}
+                  <div className="glass-card rounded-2xl p-6 border border-[#10B981]/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-[#10B981]">Character Arc Engine</h3>
+                      <span className="flex items-center gap-1.5 text-xs text-[#22D3EE] bg-[#22D3EE]/10 px-3 py-1 rounded-full">
+                        <Unlock className="w-3 h-3" /> UNLOCKED
+                      </span>
+                    </div>
+                    <div className="text-sm text-zinc-300 leading-relaxed space-y-3">
+                      <p><span className="text-[#10B981] font-medium">Act I — The Gift:</span> You entered the world with {primary.data.strengths[0].toLowerCase()} as your core advantage. This is the energy that defines your early wins and first impressions.</p>
+                      <p><span className="text-[#10B981] font-medium">Act II — The Trial:</span> Your {primary.archetype} shadow ({primary.data.shadowSide.split("—")[0].trim().toLowerCase()}) emerges as your defining challenge. Famous {primary.archetype}s like {primary.data.famousExamples[0]} faced this same crucible.</p>
+                      <p><span className="text-[#10B981] font-medium">Act III — The Integration:</span> The mature {primary.archetype} synthesizes their strength and shadow into wisdom. Your arc leads toward mastering the tension between {primary.data.strengths[0].toLowerCase()} and {primary.data.challenges[0].toLowerCase()}.</p>
+                    </div>
+                  </div>
+
+                  {/* Famous Examples */}
+                  <div className="glass-card rounded-2xl p-6">
+                    <h3 className="font-semibold mb-4">Famous {primary.archetype}s</h3>
+                    <div className="flex flex-wrap gap-3">
+                      {primary.data.famousExamples.map((name) => (
+                        <span key={name} className="px-4 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-sm text-zinc-300">{name}</span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Loss Aversion Banner ───────────────────────────────────── */}
-        <section className="pb-4 px-6">
-          <div className="max-w-2xl mx-auto">
-            <div className="rounded-xl bg-[#F59E0B]/5 border border-[#F59E0B]/10 px-5 py-3 flex items-center justify-center gap-3 text-sm">
-              <Clock className="w-4 h-4 text-[#F59E0B] shrink-0" />
-              <p className="text-zinc-400">
-                Your analysis is stored for <span className="text-[#F59E0B] font-medium">24 hours</span>. After that, you&apos;d need to retake the quiz.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Decoy Pricing / CTA ────────────────────────────────────── */}
-        <section className="py-12 px-6">
-          <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-8">
-              <p className="text-zinc-600 text-sm line-through mb-1">$200/hr therapy session</p>
-              <h2 className="font-serif text-2xl sm:text-3xl font-bold">Unlock Your Full Archetype Blueprint</h2>
-            </div>
-
-            {/* 3 tiers */}
-            <div className="grid sm:grid-cols-3 gap-4 mb-8">
-              {/* Basic */}
-              <button
-                onClick={() => setSelectedTier("basic")}
-                className={`glass-card rounded-2xl p-6 text-left transition-all cursor-pointer ${selectedTier === "basic" ? "border-white/20 bg-white/[0.04]" : "border-white/[0.06] hover:border-white/10"} border`}
-              >
-                <h4 className="font-semibold mb-1">Basic Report</h4>
-                <p className="text-2xl font-bold mb-2">$9.99</p>
-                <ul className="space-y-1.5 text-xs text-zinc-500">
-                  <li>✓ Full text analysis</li>
-                  <li>✓ All 5 locked sections</li>
-                  <li className="text-zinc-700">✗ Audio narration</li>
-                  <li className="text-zinc-700">✗ PDF download</li>
-                  <li className="text-zinc-700">✗ Compatibility analysis</li>
-                </ul>
-              </button>
-
-              {/* Full — recommended */}
-              <button
-                onClick={() => setSelectedTier("full")}
-                className={`rounded-2xl p-6 text-left transition-all relative cursor-pointer ${selectedTier === "full" ? "border-[#6366F1]/50 bg-[#6366F1]/5 glow-indigo" : "border-[#6366F1]/20 hover:border-[#6366F1]/30 bg-[#6366F1]/[0.03]"} border`}
-              >
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#6366F1] text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-                  Most Popular
+              </>
+            ) : (
+              <>
+                <h3 className="text-xs uppercase tracking-[0.2em] text-zinc-600 font-medium mb-6 text-center">Unlock your complete blueprint</h3>
+                <div className="space-y-4">
+                  {lockedSections.map((section) => (
+                    <div key={section.title} className="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">{section.title}</h3>
+                        <span className="flex items-center gap-1.5 text-xs text-zinc-600 bg-white/[0.03] px-3 py-1 rounded-full">
+                          <Lock className="w-3 h-3" /> LOCKED
+                        </span>
+                      </div>
+                      {/* Curiosity gap: visible teaser before blur */}
+                      <p className="text-sm text-zinc-400 leading-relaxed">
+                        <span className="text-zinc-300">{section.teaser.slice(0, 55)}</span>
+                        <span className="blur-[6px] select-none">{section.preview}</span>
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                <h4 className="font-semibold mb-1">Full Blueprint</h4>
-                <p className="text-2xl font-bold text-[#6366F1] mb-2">$19.99</p>
-                <ul className="space-y-1.5 text-xs text-zinc-400">
-                  <li>✓ Full text analysis</li>
-                  <li>✓ All 5 locked sections</li>
-                  <li>✓ Audio narration</li>
-                  <li>✓ PDF download</li>
-                  <li className="text-zinc-700">✗ Compatibility analysis</li>
-                </ul>
-              </button>
-
-              {/* Couples */}
-              <button
-                onClick={() => setSelectedTier("couples")}
-                className={`glass-card rounded-2xl p-6 text-left transition-all cursor-pointer ${selectedTier === "couples" ? "border-white/20 bg-white/[0.04]" : "border-white/[0.06] hover:border-white/10"} border`}
-              >
-                <h4 className="font-semibold mb-1">Couples Bundle</h4>
-                <p className="text-2xl font-bold mb-2">$34.99</p>
-                <ul className="space-y-1.5 text-xs text-zinc-400">
-                  <li>✓ 2 full reports</li>
-                  <li>✓ All 5 locked sections</li>
-                  <li>✓ Audio narration</li>
-                  <li>✓ PDF download</li>
-                  <li>✓ Compatibility analysis</li>
-                </ul>
-              </button>
-            </div>
-
-            {/* Checkout button */}
-            <motion.div
-              animate={{ boxShadow: ["0 0 20px rgba(99,102,241,0.1)", "0 0 40px rgba(99,102,241,0.2)", "0 0 20px rgba(99,102,241,0.1)"] }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="text-center"
-            >
-              <button
-                onClick={() => handleCheckout(selectedTier)}
-                className="inline-flex items-center gap-2 bg-[#6366F1] hover:bg-[#5558E6] text-white font-medium px-10 py-4 rounded-xl text-lg transition-all hover:shadow-[0_0_40px_rgba(99,102,241,0.3)] cursor-pointer"
-              >
-                Unlock {selectedTier === "basic" ? "Basic Report" : selectedTier === "full" ? "Full Blueprint" : "Couples Bundle"} — ${selectedTier === "basic" ? "9.99" : selectedTier === "full" ? "19.99" : "34.99"}
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </motion.div>
+              </>
+            )}
           </div>
         </section>
+
+        {/* ── Loss Aversion Banner (hidden for VIP) ─────────────────── */}
+        {!isVip && (
+          <section className="pb-4 px-6">
+            <div className="max-w-2xl mx-auto">
+              <div className="rounded-xl bg-[#F59E0B]/5 border border-[#F59E0B]/10 px-5 py-3 flex items-center justify-center gap-3 text-sm">
+                <Clock className="w-4 h-4 text-[#F59E0B] shrink-0" />
+                <p className="text-zinc-400">
+                  Your analysis is stored for <span className="text-[#F59E0B] font-medium">24 hours</span>. After that, you&apos;d need to retake the quiz.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Decoy Pricing / CTA (hidden for VIP) ───────────────────── */}
+        {!isVip ? (
+          <section className="py-12 px-6">
+            <div className="max-w-2xl mx-auto">
+              <div className="text-center mb-8">
+                <p className="text-zinc-600 text-sm line-through mb-1">$200/hr therapy session</p>
+                <h2 className="font-serif text-2xl sm:text-3xl font-bold">Unlock Your Full Archetype Blueprint</h2>
+              </div>
+
+              {/* 3 tiers */}
+              <div className="grid sm:grid-cols-3 gap-4 mb-8">
+                {/* Basic */}
+                <button
+                  onClick={() => setSelectedTier("basic")}
+                  className={`glass-card rounded-2xl p-6 text-left transition-all cursor-pointer ${selectedTier === "basic" ? "border-white/20 bg-white/[0.04]" : "border-white/[0.06] hover:border-white/10"} border`}
+                >
+                  <h4 className="font-semibold mb-1">Basic Report</h4>
+                  <p className="text-2xl font-bold mb-2">$9.99</p>
+                  <ul className="space-y-1.5 text-xs text-zinc-500">
+                    <li>✓ Full text analysis</li>
+                    <li>✓ All 5 locked sections</li>
+                    <li className="text-zinc-700">✗ Audio narration</li>
+                    <li className="text-zinc-700">✗ PDF download</li>
+                    <li className="text-zinc-700">✗ Compatibility analysis</li>
+                  </ul>
+                </button>
+
+                {/* Full — recommended */}
+                <button
+                  onClick={() => setSelectedTier("full")}
+                  className={`rounded-2xl p-6 text-left transition-all relative cursor-pointer ${selectedTier === "full" ? "border-[#6366F1]/50 bg-[#6366F1]/5 glow-indigo" : "border-[#6366F1]/20 hover:border-[#6366F1]/30 bg-[#6366F1]/[0.03]"} border`}
+                >
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#6366F1] text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                    Most Popular
+                  </div>
+                  <h4 className="font-semibold mb-1">Full Blueprint</h4>
+                  <p className="text-2xl font-bold text-[#6366F1] mb-2">$19.99</p>
+                  <ul className="space-y-1.5 text-xs text-zinc-400">
+                    <li>✓ Full text analysis</li>
+                    <li>✓ All 5 locked sections</li>
+                    <li>✓ Audio narration</li>
+                    <li>✓ PDF download</li>
+                    <li className="text-zinc-700">✗ Compatibility analysis</li>
+                  </ul>
+                </button>
+
+                {/* Couples */}
+                <button
+                  onClick={() => setSelectedTier("couples")}
+                  className={`glass-card rounded-2xl p-6 text-left transition-all cursor-pointer ${selectedTier === "couples" ? "border-white/20 bg-white/[0.04]" : "border-white/[0.06] hover:border-white/10"} border`}
+                >
+                  <h4 className="font-semibold mb-1">Couples Bundle</h4>
+                  <p className="text-2xl font-bold mb-2">$34.99</p>
+                  <ul className="space-y-1.5 text-xs text-zinc-400">
+                    <li>✓ 2 full reports</li>
+                    <li>✓ All 5 locked sections</li>
+                    <li>✓ Audio narration</li>
+                    <li>✓ PDF download</li>
+                    <li>✓ Compatibility analysis</li>
+                  </ul>
+                </button>
+              </div>
+
+              {/* Checkout button */}
+              <motion.div
+                animate={{ boxShadow: ["0 0 20px rgba(99,102,241,0.1)", "0 0 40px rgba(99,102,241,0.2)", "0 0 20px rgba(99,102,241,0.1)"] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="text-center"
+              >
+                <button
+                  onClick={() => handleCheckout(selectedTier)}
+                  className="inline-flex items-center gap-2 bg-[#6366F1] hover:bg-[#5558E6] text-white font-medium px-10 py-4 rounded-xl text-lg transition-all hover:shadow-[0_0_40px_rgba(99,102,241,0.3)] cursor-pointer"
+                >
+                  Unlock {selectedTier === "basic" ? "Basic Report" : selectedTier === "full" ? "Full Blueprint" : "Couples Bundle"} — ${selectedTier === "basic" ? "9.99" : selectedTier === "full" ? "19.99" : "34.99"}
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </motion.div>
+            </div>
+          </section>
+        ) : (
+          <section className="py-8 px-6">
+            <div className="max-w-2xl mx-auto text-center">
+              <div className="glass-card rounded-2xl p-8 border border-[#F59E0B]/20">
+                <Crown className="w-10 h-10 text-[#F59E0B] mx-auto mb-4" />
+                <h2 className="font-serif text-2xl font-bold mb-2">A-Class Access Active</h2>
+                <p className="text-zinc-400 text-sm">
+                  All premium sections are unlocked for you, {vipName}. No payment required — enjoy your complete blueprint.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* HEXACO CTA - Enhanced */}
         <section className="pb-20 px-6">

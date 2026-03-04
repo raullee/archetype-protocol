@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { Crown } from "lucide-react";
 import { QUESTIONS } from "@/lib/questions";
 import { Archetype } from "@/lib/archetypes";
+import { isVipSession, getVipName } from "@/lib/whitelist";
 
 export default function QuizPage() {
   const router = useRouter();
@@ -12,7 +14,12 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState<Archetype[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [direction, setDirection] = useState(1);
+  const [vipName, setVipName] = useState<string | null>(null);
   const startTime = useRef(Date.now());
+
+  useEffect(() => {
+    if (isVipSession()) setVipName(getVipName());
+  }, []);
 
   const question = QUESTIONS[currentQ];
   const progress = ((currentQ) / QUESTIONS.length) * 100;
@@ -79,6 +86,14 @@ export default function QuizPage() {
       <div className="fixed top-6 right-6 z-50 text-sm text-zinc-600">
         {currentQ + 1} / {QUESTIONS.length}
       </div>
+
+      {/* VIP badge */}
+      {vipName && (
+        <div className="fixed top-6 left-6 z-50 flex items-center gap-2 bg-[#F59E0B]/10 border border-[#F59E0B]/20 rounded-full px-3 py-1.5">
+          <Crown className="w-3.5 h-3.5 text-[#F59E0B]" />
+          <span className="text-xs font-medium text-[#F59E0B]">{vipName} — VIP</span>
+        </div>
+      )}
 
       {/* Question */}
       <div className="flex-1 flex items-center justify-center px-6 py-20">
