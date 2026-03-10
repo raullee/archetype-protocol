@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { QUESTIONS } from "@/lib/questions";
 import { Archetype } from "@/lib/archetypes";
+import { trackQuizStart, trackQuizComplete } from "@/lib/analytics";
 
 export default function QuizPage() {
   const router = useRouter();
@@ -13,6 +14,11 @@ export default function QuizPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [direction, setDirection] = useState(1);
   const startTime = useRef(Date.now());
+
+  // Track quiz start on mount
+  useEffect(() => {
+    trackQuizStart();
+  }, []);
 
   const question = QUESTIONS[currentQ];
   const progress = ((currentQ) / QUESTIONS.length) * 100;
@@ -27,6 +33,11 @@ export default function QuizPage() {
     } else {
       setIsAnalyzing(true);
       const elapsed = Math.round((Date.now() - startTime.current) / 1000);
+      // Determine the most common archetype for tracking
+      const counts: Record<string, number> = {};
+      newAnswers.forEach((a) => { counts[a] = (counts[a] || 0) + 1; });
+      const topArchetype = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Unknown";
+      trackQuizComplete(topArchetype, elapsed);
       setTimeout(() => {
         const encoded = encodeURIComponent(newAnswers.join(","));
         router.push(`/results?a=${encoded}&t=${elapsed}`);

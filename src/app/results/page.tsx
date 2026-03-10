@@ -11,6 +11,7 @@ import {
   Shield, HeartHandshake, Laugh, Users, Loader2, Clock, Timer,
 } from "lucide-react";
 import Link from "next/link";
+import { trackArchetypeResultView, trackPaymentClick, trackShareResult, trackCtaClick } from "@/lib/analytics";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Crown, Palette, Heart, Sun, BookOpen, Compass, Zap, Sparkles, Shield, HeartHandshake, Laugh, Users,
@@ -311,17 +312,26 @@ function ResultsContent() {
   const result = answers.length > 0 ? getTopArchetypes(answers) : null;
 
   useEffect(() => {
-    const timer = setTimeout(() => setRevealed(true), 3000);
+    const timer = setTimeout(() => {
+      setRevealed(true);
+      // Track result view once reveal animation completes
+      if (result) {
+        trackArchetypeResultView(result.primary.archetype, result.secondary.archetype);
+      }
+    }, 3000);
     return () => clearTimeout(timer);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCheckout = useCallback((tier: string) => {
     const priceMap: Record<string, number> = { basic: 999, full: 1999, couples: 3499 };
+    const priceDisplay: Record<string, string> = { basic: "9.99", full: "19.99", couples: "34.99" };
     const nameMap: Record<string, string> = {
       basic: "Basic Archetype Report",
       full: "Full Archetype Blueprint (Text + Audio + PDF)",
       couples: "Couples Bundle — 2 Reports + Compatibility Analysis",
     };
+    // Track payment click
+    trackPaymentClick(tier, priceDisplay[tier] || "0", result ? result.primary.archetype : "Unknown");
     fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -358,6 +368,7 @@ function ResultsContent() {
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
+    trackShareResult("copy_link", primary.archetype);
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -525,10 +536,10 @@ function ResultsContent() {
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copied ? "Copied!" : "Copy link"}
               </button>
-              <a href={`https://twitter.com/intent/tweet?text=I%27m%20The%20${primary.archetype}!%20Discover%20your%20core%20archetype%20%E2%86%92&url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener" className="flex items-center gap-2 px-4 py-2 glass-card rounded-lg text-sm text-zinc-400 hover:text-white transition-colors">
+              <a onClick={() => trackShareResult("twitter", primary.archetype)} href={`https://twitter.com/intent/tweet?text=I%27m%20The%20${primary.archetype}!%20Discover%20your%20core%20archetype%20%E2%86%92&url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener" className="flex items-center gap-2 px-4 py-2 glass-card rounded-lg text-sm text-zinc-400 hover:text-white transition-colors">
                 <Twitter className="w-4 h-4" /> Twitter
               </a>
-              <a href={`https://wa.me/?text=I%27m%20The%20${primary.archetype}!%20Take%20the%20quiz%3A%20${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener" className="flex items-center gap-2 px-4 py-2 glass-card rounded-lg text-sm text-zinc-400 hover:text-white transition-colors">
+              <a onClick={() => trackShareResult("whatsapp", primary.archetype)} href={`https://wa.me/?text=I%27m%20The%20${primary.archetype}!%20Take%20the%20quiz%3A%20${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener" className="flex items-center gap-2 px-4 py-2 glass-card rounded-lg text-sm text-zinc-400 hover:text-white transition-colors">
                 <MessageCircle className="w-4 h-4" /> WhatsApp
               </a>
             </div>
@@ -672,7 +683,7 @@ function ResultsContent() {
                   <div className="text-zinc-600">Your artistic hero's journey mapped</div>
                 </div>
               </div>
-              <a href="https://hexaco-test-app.vercel.app?from=archetype" target="_blank" rel="noopener" className="inline-flex items-center gap-2 bg-[#22D3EE] hover:bg-[#06B6D4] text-black font-medium px-6 py-3 rounded-xl transition-colors">
+              <a onClick={() => trackCtaClick("results_hexaco", "hexaco-test-app")} href="https://hexaco-test-app.vercel.app?from=archetype" target="_blank" rel="noopener" className="inline-flex items-center gap-2 bg-[#22D3EE] hover:bg-[#06B6D4] text-black font-medium px-6 py-3 rounded-xl transition-colors">
                 Unlock Your Complete Creative Identity <ArrowRight className="w-4 h-4" />
               </a>
             </div>

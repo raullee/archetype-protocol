@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Star, Brain, Sparkles, Eye, Lock, ChevronRight, Crown, Palette, Heart, Sun, BookOpen, Compass, Zap, Shield, HeartHandshake, Laugh, Users } from "lucide-react";
 import { ALL_ARCHETYPES, ARCHETYPE_DATA } from "@/lib/archetypes";
+import { trackCtaClick } from "@/lib/analytics";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Crown, Palette, Heart, Sun, BookOpen, Compass, Zap, Sparkles, Shield, HeartHandshake, Laugh, Users,
@@ -25,7 +26,7 @@ export default function LandingPage() {
             <a href="https://hexaco-test-app.vercel.app" target="_blank" rel="noopener" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors hidden sm:block">
               Deep Personality Analysis <ArrowRight className="inline w-3 h-3 ml-1" />
             </a>
-            <Link href="/test" className="bg-[#6366F1] hover:bg-[#5558E6] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            <Link href="/test" onClick={() => trackCtaClick("nav_bar", "/test")} className="bg-[#6366F1] hover:bg-[#5558E6] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
               Take the Quiz
             </Link>
           </div>
@@ -43,7 +44,7 @@ export default function LandingPage() {
             <p className="text-zinc-400 text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
               The psychological framework used by the world&apos;s most self-aware people. 90 seconds. Zero fluff.
             </p>
-            <Link href="/test" className="inline-flex items-center gap-2 bg-[#6366F1] hover:bg-[#5558E6] text-white font-medium px-8 py-4 rounded-xl text-lg transition-all hover:shadow-[0_0_40px_rgba(99,102,241,0.3)]">
+            <Link href="/test" onClick={() => trackCtaClick("hero", "/test")} className="inline-flex items-center gap-2 bg-[#6366F1] hover:bg-[#5558E6] text-white font-medium px-8 py-4 rounded-xl text-lg transition-all hover:shadow-[0_0_40px_rgba(99,102,241,0.3)]">
               Begin Discovery <ArrowRight className="w-5 h-5" />
             </Link>
           </motion.div>
@@ -180,7 +181,7 @@ export default function LandingPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
             <h2 className="font-serif text-4xl sm:text-5xl font-bold mb-4">Ready?</h2>
             <p className="text-zinc-500 text-lg mb-8">Discover your archetype in 90 seconds</p>
-            <Link href="/test" className="inline-flex items-center gap-2 bg-[#6366F1] hover:bg-[#5558E6] text-white font-medium px-8 py-4 rounded-xl text-lg transition-all hover:shadow-[0_0_40px_rgba(99,102,241,0.3)]">
+            <Link href="/test" onClick={() => trackCtaClick("footer_cta", "/test")} className="inline-flex items-center gap-2 bg-[#6366F1] hover:bg-[#5558E6] text-white font-medium px-8 py-4 rounded-xl text-lg transition-all hover:shadow-[0_0_40px_rgba(99,102,241,0.3)]">
               Start Now <ArrowRight className="w-5 h-5" />
             </Link>
           </motion.div>
