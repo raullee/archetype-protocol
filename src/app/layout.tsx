@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair-display" });
+const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", weight: ["400", "500", "700", "900"] });
 
 export const metadata: Metadata = {
   title: "The Archetype Protocol — Discover Your Core Archetype",
@@ -16,9 +15,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const gaId = process.env.NEXT_PUBLIC_GA_ID || "G-M8VKQ3H7R2";
+  const gaId = process.env.NEXT_PUBLIC_GA_ID || "G-FFFXZEXJN3";
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         {/* Google Analytics 4 */}
         <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
@@ -36,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           });
         `}} />
       </head>
-      <body className={`${inter.variable} ${playfair.variable} font-sans bg-[#0A0A0B] text-[#F5F5F7]`}>
+      <body className={`${outfit.variable} font-sans bg-[#F0F0F0] text-[#121212]`}>
         {children}
       </body>
     </html>
