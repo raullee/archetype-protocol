@@ -71,7 +71,7 @@ function PremiumContent() {
         </div>
 
         <div className="text-center mt-12">
-          <a href="https://hexaco-test-app.vercel.app" target="_blank" rel="noopener" className="inline-flex items-center gap-2 text-[#22D3EE] hover:text-[#06B6D4] font-medium transition-colors">
+          <a href="https://hexaco.raul.my" target="_blank" rel="noopener" className="inline-flex items-center gap-2 text-[#22D3EE] hover:text-[#06B6D4] font-medium transition-colors">
             Go deeper with HEXACO Personality Analysis <ArrowRight className="w-4 h-4" />
           </a>
         </div>

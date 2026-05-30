@@ -3,7 +3,7 @@
 import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle, Loader2 } from "lucide-react";
-import { trackPaymentSuccess } from "@/lib/analytics";
+import { trackPaymentSuccess, captureAttribution } from "@/lib/analytics";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
@@ -14,12 +14,13 @@ function SuccessContent() {
   const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
-    // Track successful payment
+    captureAttribution();
     if (archetypes) {
       const primaryArchetype = archetypes.split(",")[0] || "Unknown";
-      trackPaymentSuccess(tier, primaryArchetype);
+      // Pass session_id as transaction_id so GA4 dedupes purchase events.
+      trackPaymentSuccess(tier, primaryArchetype, sessionId || undefined);
     }
-  }, [archetypes, tier]);
+  }, [archetypes, tier, sessionId]);
 
   useEffect(() => {
     // Redirect to report page after payment success
@@ -52,13 +53,19 @@ function SuccessContent() {
         
         {/* Manual link in case auto-redirect fails */}
         {archetypes && (
-          <a 
+          <a
             href={`/report?archetypes=${archetypes}&tier=${tier}&session_id=${sessionId || ''}`}
             className="text-[#6366F1] hover:underline text-sm"
           >
             Click here if you're not redirected automatically
           </a>
         )}
+        <p className="mt-8 text-xs text-zinc-500">
+          Want this read in person?{" "}
+          <a href="https://book.raul.my" target="_blank" rel="noopener" className="text-[#22D3EE] hover:underline">
+            Work with Raul &rarr;
+          </a>
+        </p>
       </div>
     </div>
   );

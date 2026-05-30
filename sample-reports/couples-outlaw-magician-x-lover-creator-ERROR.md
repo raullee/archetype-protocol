@@ -1,0 +1,8 @@
+# Couples Report: Outlaw/Magician × Lover/Creator
+
+**Status:** GENERATION FAILED
+**Error:** [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+**Fallback Error:** [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+**Attempted:** 2026-02-18T04:23:06.535Z
+
+This sample report could not be generated due to API limitations or quota issues.

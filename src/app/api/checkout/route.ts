@@ -18,11 +18,10 @@ export async function POST(request: Request) {
     const { archetypes = [], tier = "full", price, productName } = body;
 
     // Default pricing if not provided
-    const priceMap: Record<string, number> = { basic: 999, full: 1999, couples: 3499 };
+    const priceMap: Record<string, number> = { basic: 1299, full: 2499 };
     const nameMap: Record<string, string> = {
-      basic: "Basic Archetype Report — Text Analysis",
-      full: "Full Archetype Blueprint — Text + Audio + PDF",
-      couples: "Couples Bundle — 2 Reports + Compatibility Analysis",
+      basic: "Basic Artist Archetype Profile",
+      full: "Complete Artist Blueprint",
     };
 
     const unitAmount = price || priceMap[tier] || 1999;
@@ -30,8 +29,9 @@ export async function POST(request: Request) {
 
     const primaryArchetype = archetypes[0] || "Unknown";
 
+    const origin = request.headers.get("origin") || "https://archetype.raul.my";
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
+      // Omit payment_method_types so Stripe Checkout adaptively enables Card + Apple Pay + Google Pay + Link.
       line_items: [
         {
           price_data: {
@@ -46,12 +46,14 @@ export async function POST(request: Request) {
         },
       ],
       mode: "payment",
-      success_url: `${request.headers.get("origin") || "https://archetype-protocol.vercel.app"}/success?archetypes=${archetypes.join(",")}&tier=${tier}`,
-      cancel_url: `${request.headers.get("origin") || "https://archetype-protocol.vercel.app"}/results?a=${archetypes.join(",")}`,
+      success_url: `${origin}/success?archetypes=${archetypes.join(",")}&tier=${tier}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/results?a=${archetypes.join(",")}`,
       metadata: {
         archetypes: archetypes.join(","),
         tier,
       },
+      customer_creation: "if_required",
+      allow_promotion_codes: true,
     });
 
     return NextResponse.json({ url: session.url });

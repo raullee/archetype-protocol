@@ -1,16 +1,27 @@
 /**
- * GA4 Custom Event Tracking for The Archetype Protocol
+ * GA4 Custom Event Tracking for The Archetype Protocol.
+ *
+ * Each conversion-relevant GA event also fires the corresponding Meta Pixel + CAPI event
+ * (see ./meta-pixel.ts) so paid Meta campaigns can optimize off the same funnel signals.
  *
  * Events tracked:
- *   quiz_start          – user begins the quiz
- *   quiz_complete       – user finishes all questions (includes archetype + time)
- *   archetype_result_view – result page fully reveals the archetype
- *   payment_click       – user clicks a checkout / unlock button
- *   share_result        – user clicks any share button (twitter, whatsapp, copy link)
- *   cta_click           – user clicks a prominent CTA (hero, nav, footer, etc.)
- *   report_download     – user downloads their PDF report
- *   report_share        – user shares from the report page
+ *   quiz_start          – user begins the quiz                  → Pixel Lead
+ *   quiz_complete       – user finishes all questions            → Pixel CompleteRegistration
+ *   archetype_result_view – result page fully reveals            → Pixel ViewContent
+ *   payment_click       – user clicks a checkout / unlock button → Pixel InitiateCheckout
+ *   purchase            – Stripe checkout success                → Pixel Purchase (dedupes with server-side Stripe webhook fire)
+ *   share_result        – share button click
+ *   cta_click           – prominent CTA click
+ *   report_download     – PDF download
+ *   report_share        – share from the report page
  */
+import {
+  trackPixelLead,
+  trackPixelQuizComplete,
+  trackPixelViewContent,
+  trackPixelInitiateCheckout,
+  trackPixelPurchase,
+} from "./meta-pixel";
 
 // Extend Window so TypeScript knows about gtag
 declare global {
@@ -20,9 +31,51 @@ declare global {
   }
 }
 
-function gtag(...args: unknown[]) {
+const ATTRIBUTION_KEY = "archetype_attribution";
+
+type Attribution = {
+  ref?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  landing_path?: string;
+  first_seen?: number;
+};
+
+/** Persist first-touch attribution from URL params for the session.
+    Call once on app mount. Auto-attached to every event. */
+export function captureAttribution(): void {
+  if (typeof window === "undefined") return;
+  if (sessionStorage.getItem(ATTRIBUTION_KEY)) return;
+  const params = new URLSearchParams(window.location.search);
+  const attr: Attribution = {
+    ref: params.get("ref") || undefined,
+    utm_source: params.get("utm_source") || undefined,
+    utm_medium: params.get("utm_medium") || undefined,
+    utm_campaign: params.get("utm_campaign") || undefined,
+    utm_content: params.get("utm_content") || undefined,
+    landing_path: window.location.pathname,
+    first_seen: Date.now(),
+  };
+  if (attr.ref || attr.utm_source) {
+    sessionStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(attr));
+  }
+}
+
+function getAttribution(): Partial<Attribution> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(sessionStorage.getItem(ATTRIBUTION_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function gtag(eventType: string, name: string, params: Record<string, unknown> = {}) {
   if (typeof window !== "undefined" && window.gtag) {
-    window.gtag(...args);
+    // Auto-attach attribution + capture cross-site funnel origin.
+    window.gtag(eventType, name, { ...params, ...getAttribution() });
   }
 }
 
@@ -33,6 +86,7 @@ export function trackQuizStart() {
     event_category: "Engagement",
     event_label: "Archetype Quiz",
   });
+  trackPixelLead("archetype_quiz_start");
 }
 
 export function trackQuizComplete(archetype: string, completionSeconds: number) {
@@ -43,6 +97,7 @@ export function trackQuizComplete(archetype: string, completionSeconds: number) 
     archetype_result: archetype,
     completion_time_seconds: completionSeconds,
   });
+  trackPixelQuizComplete(archetype);
 }
 
 // ── Results page ────────────────────────────────────────────────────────
@@ -54,28 +109,42 @@ export function trackArchetypeResultView(primaryArchetype: string, secondaryArch
     primary_archetype: primaryArchetype,
     secondary_archetype: secondaryArchetype,
   });
+  trackPixelViewContent(primaryArchetype, secondaryArchetype);
 }
 
 // ── Payment / Paywall ───────────────────────────────────────────────────
 
 export function trackPaymentClick(tier: string, price: string, archetype: string) {
+  const priceNum = parseFloat(price);
   gtag("event", "payment_click", {
     event_category: "Revenue",
     event_label: tier,
-    value: parseFloat(price),
+    value: priceNum,
     currency: "USD",
     tier,
     archetype,
   });
+  trackPixelInitiateCheckout(tier, priceNum, archetype);
 }
 
-export function trackPaymentSuccess(tier: string, archetype: string) {
+/** Tier → fallback price in USD. Used when amount isn't passed in. */
+const TIER_PRICES: Record<string, number> = { basic: 12.99, full: 24.99 };
+
+export function trackPaymentSuccess(tier: string, archetype: string, sessionId?: string, amountUSD?: number) {
+  const value = amountUSD ?? TIER_PRICES[tier] ?? 24.99;
   gtag("event", "purchase", {
     event_category: "Revenue",
     event_label: tier,
     tier,
     archetype,
+    value,
+    currency: "USD",
+    transaction_id: sessionId,
   });
+  // Pixel Purchase dedupes against the Stripe-webhook server-side Purchase via shared event_id = `purchase-<sessionId>`.
+  if (sessionId) {
+    trackPixelPurchase(tier, value, archetype, sessionId);
+  }
 }
 
 // ── Social sharing ──────────────────────────────────────────────────────
