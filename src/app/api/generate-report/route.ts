@@ -11,19 +11,26 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
  * success flow (session_id) or a redeemed dual bundle (bundle), so we require one
  * and verify it is paid.
  *
- * Design bias: block freeloaders, never a real buyer. A missing or unpaid token
- * is rejected, but a transient Stripe error FAILS OPEN (allow + log), because a
- * real customer holding a valid session must never be denied their purchase by an
- * upstream hiccup. Freeloaders calling with no token are still blocked; they
- * cannot cause a Stripe error because there is nothing to look up.
+ * Design bias: block freeloaders, never a real buyer. A missing, unpaid, or
+ * invalid token is rejected (fail closed). Only a genuine transient Stripe fault
+ * (network, 5xx, rate limit) fails OPEN, so a real customer holding a valid
+ * session is never denied their purchase by an upstream hiccup. A bogus
+ * "cs_"-prefixed token raises StripeInvalidRequestError, which is treated as a
+ * freeloader input and blocked, not failed open.
  */
 async function verifyEntitlement(
   sessionId: string | undefined,
   bundleId: string | undefined,
   requestedTier: 'basic' | 'full'
 ): Promise<{ allowed: boolean; tier: 'basic' | 'full'; reason?: string }> {
-  // No Stripe configured (e.g. preview env): cannot verify, so do not block.
-  if (!stripeSecretKey) return { allowed: true, tier: requestedTier, reason: 'stripe-unconfigured' };
+  // Stripe not configured. In production this is a misconfiguration, not a valid
+  // state, so fail CLOSED rather than silently disabling the paywall for everyone.
+  // In preview/dev (no keys) fail open so the funnel can be exercised without Stripe.
+  if (!stripeSecretKey) {
+    return process.env.VERCEL_ENV === 'production'
+      ? { allowed: false, tier: requestedTier, reason: 'stripe-unconfigured-prod' }
+      : { allowed: true, tier: requestedTier, reason: 'stripe-unconfigured-nonprod' };
+  }
 
   const token = (sessionId || bundleId || '').trim();
   if (!token || !token.startsWith('cs_')) {
@@ -44,8 +51,16 @@ async function verifyEntitlement(
     if (paidTier === 'basic') return { allowed: true, tier: 'basic' };
     return { allowed: true, tier: requestedTier }; // paid, unknown tier: honour request
   } catch (e) {
-    // Upstream error: fail OPEN so a real buyer is never blocked, but log it.
-    console.error('[archetype][entitlement] verify failed, allowing:', e instanceof Error ? e.message : e);
+    // Distinguish a bogus token from a transient outage. A bad/nonexistent/invalid
+    // session id is a deliberate freeloader input; Stripe raises
+    // StripeInvalidRequestError (4xx resource_missing) for it, so fail CLOSED.
+    // Only a genuine transient fault (network, 5xx, rate limit) fails OPEN, so a
+    // real buyer is never blocked by an upstream hiccup. Without this split,
+    // any "cs_"-prefixed garbage would throw and fail open, bypassing the gate.
+    if ((e as { type?: string })?.type === 'StripeInvalidRequestError') {
+      return { allowed: false, tier: requestedTier, reason: 'invalid-session' };
+    }
+    console.error('[archetype][entitlement] transient verify error, allowing:', e instanceof Error ? e.message : e);
     return { allowed: true, tier: requestedTier, reason: 'verify-error-failopen' };
   }
 }
