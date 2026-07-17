@@ -39,6 +39,11 @@ function ReportContent() {
   // Get params from URL
   const archetypes = searchParams.get('archetypes')?.split(',') || [];
   const tier = searchParams.get('tier') || 'full';
+  // Proof-of-payment tokens forwarded from /success (Stripe redirect) or the
+  // /results bundle path. The generate-report gate rejects any request without
+  // one, so these MUST reach the POST body or every real buyer gets a 402.
+  const sessionId = searchParams.get('session_id') || undefined;
+  const bundle = searchParams.get('bundle') || undefined;
 
   const primary = archetypes[0] as Archetype;
   const secondary = archetypes[1] as Archetype;
@@ -112,6 +117,8 @@ function ReportContent() {
           secondary,
           tier,
           profile,
+          sessionId,
+          bundle,
         }),
       });
 

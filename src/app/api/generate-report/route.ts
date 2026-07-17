@@ -1,6 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
 import { generateReportPrompt, ResonanceEntry } from '@/lib/report-prompts';
 import { Archetype, ARCHETYPE_DATA } from '@/lib/archetypes';
+
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
+
+/**
+ * Proof-of-payment gate. The report IS the RM 95 product, so the endpoint that
+ * mints it must not be open. Every legitimate reader arrives from the Stripe
+ * success flow (session_id) or a redeemed dual bundle (bundle), so we require one
+ * and verify it is paid.
+ *
+ * Design bias: block freeloaders, never a real buyer. A missing or unpaid token
+ * is rejected, but a transient Stripe error FAILS OPEN (allow + log), because a
+ * real customer holding a valid session must never be denied their purchase by an
+ * upstream hiccup. Freeloaders calling with no token are still blocked; they
+ * cannot cause a Stripe error because there is nothing to look up.
+ */
+async function verifyEntitlement(
+  sessionId: string | undefined,
+  bundleId: string | undefined,
+  requestedTier: 'basic' | 'full'
+): Promise<{ allowed: boolean; tier: 'basic' | 'full'; reason?: string }> {
+  // No Stripe configured (e.g. preview env): cannot verify, so do not block.
+  if (!stripeSecretKey) return { allowed: true, tier: requestedTier, reason: 'stripe-unconfigured' };
+
+  const token = (sessionId || bundleId || '').trim();
+  if (!token || !token.startsWith('cs_')) {
+    return { allowed: false, tier: requestedTier, reason: 'no-payment-token' };
+  }
+
+  try {
+    const stripe = new Stripe(stripeSecretKey);
+    const session = await stripe.checkout.sessions.retrieve(token);
+    const paid = session.payment_status === 'paid' || session.payment_status === 'no_payment_required';
+    if (!paid) return { allowed: false, tier: requestedTier, reason: 'session-unpaid' };
+
+    // A dual bundle unlocks the full blueprint. A direct purchase grants exactly
+    // the tier that was paid for, so a basic buyer cannot request the full report.
+    const paidTier = session.metadata?.tier;
+    if (paidTier === 'dual') return { allowed: true, tier: requestedTier };
+    if (paidTier === 'full') return { allowed: true, tier: 'full' };
+    if (paidTier === 'basic') return { allowed: true, tier: 'basic' };
+    return { allowed: true, tier: requestedTier }; // paid, unknown tier: honour request
+  } catch (e) {
+    // Upstream error: fail OPEN so a real buyer is never blocked, but log it.
+    console.error('[archetype][entitlement] verify failed, allowing:', e instanceof Error ? e.message : e);
+    return { allowed: true, tier: requestedTier, reason: 'verify-error-failopen' };
+  }
+}
 
 // Reports run through OpenRouter, not the direct Google key. OpenRouter carries
 // its own billing, so gemini-2.5-pro is reachable (the direct free-tier key is
@@ -18,7 +66,8 @@ const MODEL_CHAIN: Record<string, string[]> = {
 
 async function generateWithFallback(
   models: string[],
-  prompt: string
+  prompt: string,
+  minLength = 200
 ): Promise<{ text: string; model: string }> {
   if (!OPENROUTER_KEY) throw new Error('OPENROUTER_API_KEY is not set');
   let lastErr: unknown;
@@ -46,7 +95,7 @@ async function generateWithFallback(
       }
       const data = await res.json();
       const text: string = data?.choices?.[0]?.message?.content ?? '';
-      if (text && text.trim().length > 200) return { text, model: name };
+      if (text && text.trim().length >= minLength) return { text, model: name };
       lastErr = new Error(`Empty/short response from ${name}`);
     } catch (e) {
       lastErr = e;
@@ -84,9 +133,14 @@ export async function POST(request: NextRequest) {
   try {
     requestData = await request.json();
     const { primary, secondary, tier } = requestData;
+    const body = requestData as {
+      profile?: ResonanceEntry[];
+      sessionId?: string;
+      bundle?: string;
+    };
     // Optional 12-way resonance profile from the results page. When present the
     // report is personalised to the reader's full spectrum, not just their top 2.
-    const profile = (requestData as { profile?: ResonanceEntry[] }).profile;
+    const profile = body.profile;
 
     if (!primary || !secondary || !tier) {
       return NextResponse.json(
@@ -102,24 +156,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Proof of payment. Rejects freeloaders; fails open on Stripe errors so a real
+    // buyer is never blocked. The paid tier wins, so basic cannot request full.
+    const entitlement = await verifyEntitlement(body.sessionId, body.bundle, tier);
+    if (!entitlement.allowed) {
+      return NextResponse.json(
+        { error: 'This report requires a completed purchase.', reason: entitlement.reason },
+        { status: 402 }
+      );
+    }
+    const grantedTier = entitlement.tier;
+
     // Generate the prompt
-    const prompt = generateReportPrompt(tier, primary as Archetype, secondary as Archetype, profile);
+    const prompt = generateReportPrompt(grantedTier, primary as Archetype, secondary as Archetype, profile);
 
     // Try the tier's model chain; real models first, mock only if all fail.
     const { text: rawText, model: usedModel } = await generateWithFallback(
-      MODEL_CHAIN[tier] ?? ['google/gemini-2.5-flash'],
+      MODEL_CHAIN[grantedTier] ?? ['google/gemini-2.5-flash'],
       prompt
     );
-    console.log(`[archetype][gen] ${tier} report via ${usedModel}`);
+    console.log(`[archetype][gen] ${grantedTier} report via ${usedModel}`);
 
     const generatedText = sanitizeReportText(rawText);
 
     // Parse the generated content into sections
-    const sections = parseReportSections(generatedText, tier);
-    
+    const sections = parseReportSections(generatedText, grantedTier);
+
     // Create the report object
     const report: GeneratedReport = {
-      tier,
+      tier: grantedTier,
       primary: primary as Archetype,
       secondary: secondary as Archetype,
       sections,
@@ -217,28 +282,45 @@ function generateMockReport(primary: string, secondary: string, tier: string): G
 
 function parseReportSections(generatedText: string, tier: string): ReportSection[] {
   const sections: ReportSection[] = [];
-  
-  // Split by ## headers
-  const parts = generatedText.split(/^## /m).filter(part => part.trim().length > 0);
-  
-  parts.forEach(part => {
+
+  // The model usually opens with a few lines of intro BEFORE the first "## "
+  // heading. Splitting naively turns that intro into a section whose "title" is a
+  // whole paragraph. So peel the preamble off first and fold it into the first
+  // real section as a lead-in, rather than inventing a title for it.
+  const firstHeading = generatedText.search(/^## /m);
+  let preamble = '';
+  let body = generatedText;
+  if (firstHeading > 0) {
+    preamble = generatedText.slice(0, firstHeading).trim();
+    body = generatedText.slice(firstHeading);
+  }
+
+  const parts = body.split(/^## /m).filter((part) => part.trim().length > 0);
+
+  parts.forEach((part, i) => {
     const lines = part.trim().split('\n');
     const title = lines[0].replace(/^#+\s*/, '').trim();
-    
+
+    // A real heading is short. If the "title" is a paragraph, this chunk is stray
+    // prose, not a section; fold it into the previous section instead of titling it.
     if (!title) return;
-    
-    // Extract content (everything after the title)
-    const content = lines.slice(1).join('\n').trim();
-    
-    // Extract pull quote (look for emphasized text or quotes)
+    if (title.length > 90) {
+      if (sections.length > 0) {
+        sections[sections.length - 1].content += `\n\n${part.trim()}`;
+      }
+      return;
+    }
+
+    let content = lines.slice(1).join('\n').trim();
+    // Attach the preamble as a lead-in to the first real section.
+    if (i === 0 && preamble) {
+      content = `${preamble}\n\n${content}`;
+    }
+
     const pullQuoteMatch = content.match(/"([^"]{50,150})"/);
     const pullQuote = pullQuoteMatch ? pullQuoteMatch[1] : undefined;
-    
-    sections.push({
-      title,
-      content,
-      pullQuote
-    });
+
+    sections.push({ title, content, pullQuote });
   });
 
   // If no sections found (different format), create one main section
@@ -255,21 +337,25 @@ function parseReportSections(generatedText: string, tier: string): ReportSection
 }
 
 export async function GET(request: NextRequest) {
-  // Health check. `?live=1` actually round-trips a tiny generation through
-  // OpenRouter so a broken/expired key surfaces here instead of silently
-  // degrading to the mock (the exact failure that hid the last outage). The
-  // bare check only reports whether a key string is present.
   const configured = !!OPENROUTER_KEY;
-  const live = request.nextUrl.searchParams.get('live') === '1';
 
-  if (!live) {
+  // The live round-trip actually spends OpenRouter tokens, so it is gated behind
+  // a secret token to prevent an unauthenticated caller from burning credits by
+  // hammering the endpoint. Without a valid token, only the free presence check
+  // runs. Set HEALTHCHECK_TOKEN in the environment and call ?live=<token>.
+  const liveToken = request.nextUrl.searchParams.get('live');
+  const expected = process.env.HEALTHCHECK_TOKEN?.trim();
+  const liveAuthorised = !!expected && liveToken === expected;
+
+  if (!liveAuthorised) {
     return NextResponse.json({ status: 'ok', configured, provider: 'openrouter' });
   }
 
   try {
     const { model } = await generateWithFallback(
       ['google/gemini-2.5-flash'],
-      'Reply with the single word: ok'
+      'Reply with the single word: ok',
+      1
     );
     return NextResponse.json({ status: 'ok', configured, provider: 'openrouter', reachable: true, model });
   } catch (e) {
