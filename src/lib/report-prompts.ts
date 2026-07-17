@@ -1,143 +1,181 @@
 import { Archetype, ARCHETYPE_DATA } from './archetypes';
 
+export interface ResonanceEntry {
+  archetype: Archetype;
+  percentage: number;
+}
+
 interface ArchetypePromptContext {
   primary: Archetype;
   secondary: Archetype;
-  primaryData: any;
-  secondaryData: any;
+  primaryData: (typeof ARCHETYPE_DATA)[Archetype];
+  secondaryData: (typeof ARCHETYPE_DATA)[Archetype];
+  /** Full 12-way resonance profile, highest first. Optional for back-compat. */
+  profile?: ResonanceEntry[];
+}
+
+/**
+ * Shared guardrails appended to every prompt. This is what keeps a paid,
+ * accuracy-branded product from fabricating. The old prompt told the model to
+ * write "like you've been stalking their Instagram" and to invent statistics;
+ * both manufactured false specificity in the deliverable a customer paid for.
+ */
+const INTEGRITY_RULES = `
+NON-NEGOTIABLE RULES:
+- You have NO information about this person beyond their archetype profile below.
+  Never invent biographical facts, never reference their actual posts, releases,
+  streams, followers, or history as if you know them. Every specific must derive
+  from the archetype constructs and the resonance numbers, not from imagined
+  surveillance.
+- Never state invented statistics ("only 12% of artists...", "you are in the top
+  3%..."). No fabricated percentages, rankings, or scarcity claims.
+- You may name well-known artists ONLY as illustrative touchstones widely
+  associated with an archetype ("in the lineage of..."), never as a claim about
+  the reader and never with invented facts about those artists.
+- Write in clear, confident prose. Do NOT use em dashes; use a semicolon, comma,
+  or a full stop instead. Address the reader as "you" throughout.
+- Specificity comes from precision about the archetype, not from hype. Earn every
+  sentence. No filler, no horoscope vagueness that could apply to anyone.
+`;
+
+/**
+ * Renders the resonance profile into the prompt so the report reflects the
+ * reader's actual spectrum, not just their top two. This is the difference
+ * between "every Magician/Creator gets the same report" and a genuinely
+ * personal one: a Magician whose third band is Outlaw is a different artist
+ * from a Magician whose third band is Caregiver, and the numbers say so.
+ */
+function renderProfile(context: ArchetypePromptContext): string {
+  if (!context.profile || context.profile.length === 0) {
+    return `PRIMARY: ${context.primary}\nSECONDARY: ${context.secondary}\n(No full resonance profile supplied; work from the primary/secondary pairing.)`;
+  }
+  const lines = context.profile
+    .map((e) => `  ${e.archetype.padEnd(10)} ${e.percentage}%`)
+    .join('\n');
+  const top = context.profile.slice(0, 5).map((e) => e.archetype);
+  const tail = context.profile.slice(-3).map((e) => e.archetype);
+  return `RESONANCE PROFILE (how strongly each archetype showed up across the assessment):
+${lines}
+
+Read this as a spectrum. The top band (${top.join(', ')}) is the working identity.
+The lowest bands (${tail.join(', ')}) are the modes this artist does NOT default to;
+name at least one of these as a genuine blind spot, because what someone lacks
+shapes them as much as what they lead with. Where the primary and secondary sit
+close in percentage, treat the identity as a true blend; where the primary is far
+ahead, treat it as dominant.`;
+}
+
+function archetypeBrief(label: string, a: Archetype): string {
+  const d = ARCHETYPE_DATA[a];
+  return `${label} = ${a} ("${d.tagline}")
+  core: ${d.description}
+  strengths: ${d.strengths.join(', ')}
+  challenges: ${d.challenges.join(', ')}
+  shadow: ${d.shadowSide}
+  touchstones (illustrative only): ${d.famousExamples.join(', ')}`;
 }
 
 export const BASIC_REPORT_PROMPT = (context: ArchetypePromptContext) => `
-You are a master music industry mentor with 20+ years experience working with artists across all genres. You've watched careers unfold, seen breakthrough moments, and understand what makes or breaks an artist. You're about to deliver a deeply personal archetype analysis to a musician or performing artist.
+You are a master music industry mentor with 20+ years guiding artists across
+genres. You have watched careers break and stall, and you understand what
+separates an artist with a clear identity from one who blends into the feed. You
+are delivering a personal archetype analysis to a musician, producer, or DJ.
 
-Write a comprehensive Artist Archetype Profile for a ${context.primary} (primary) with ${context.secondary} (secondary) traits. This is NOT a generic personality reading - this is WHO THEY ARE as an artist, performer, and creative force.
+This is NOT a generic personality reading. This is who they are as an ARTIST: the
+identity they perform under, the sound they gravitate to, the way they move
+through studios and rooms and industry conversations.
 
-THE TONE: Wise mentor who's also a working musician. Direct, insightful, sometimes uncomfortably accurate. Like you've been watching their career from the shadows and finally decided to tell them everything. Address them as "you" throughout.
+${renderProfile(context)}
 
-STRUCTURE (1,500-2,000 words):
+${archetypeBrief('PRIMARY', context.primary)}
+${archetypeBrief('SECONDARY', context.secondary)}
 
-## Your Core Archetype Identity
-- WHO you are as an artist (not as a person, but as an ARTIST)
-- How this manifests in your music persona, your brand, your artistic identity
-- The energy you bring to rooms - studios, venues, industry meetings
-- Reference specific ${context.primary} traits but make it music-specific
-- Use examples of artists who embody this archetype (name actual artists)
+TONE: A working musician and mentor who tells the truth plainly. Insightful,
+specific, sometimes uncomfortably accurate, never flattering for its own sake.
 
-## Your Sonic Signature  
-- What your archetype means for your sound aesthetic
-- Production choices that feel natural vs. forced for your type
-- Genre tendencies and why certain sounds call to you
-- The "vibe" you're naturally drawn to create
-- How your ${context.primary}/${context.secondary} combination creates a unique sonic fingerprint
+STRUCTURE (1,500 to 2,000 words, using "## " for each section heading):
+
+## Your Core Artist Identity
+Who they are as an artist, how it shows in their persona and brand, and the energy
+they bring to a room. Ground it in the primary archetype and the profile numbers.
+
+## Your Sonic Signature
+What this archetype means for their sound and production instincts; which choices
+feel native versus forced; how the primary/secondary blend creates a fingerprint.
 
 ## Your Stage Persona
-- How your archetype shows up in performance
-- Your natural connection style with audiences
-- Visual identity and stage presence patterns
-- What you do unconsciously when performing that's pure ${context.primary}
-- The performer mask vs. your true artistic self
+How the archetype shows up in performance and audience connection; the difference
+between the mask they perform in and the artist underneath.
 
 ## Your Creative Process
-- How you ideate (where ideas come from for your type)
-- Your natural production and writing patterns
-- How you approach collaboration vs. solo work
-- The creative rituals that unlock your best work
-- What creative blocks look like for your archetype and how to break through
+Where ideas come from for this type, how they work solo versus collaborating, the
+rituals that unlock their best work, and what a creative block looks like for them.
 
 ## Blind Spot Warning
-- The ONE thing that will keep you stuck as an artist
-- The creative trap your archetype falls into repeatedly
-- How your ${context.primary} strength becomes your weakness when taken too far
-- Specific industry scenarios where this blind spot sabotages you
-- The uncomfortable truth you need to hear to level up
+The one pattern most likely to keep them stuck, drawn from where the primary
+strength overreaches AND from the lowest bands of their resonance profile. Name the
+uncomfortable truth. End with a direct question that makes them think.
 
-Make it feel like you've been studying their career, their Instagram posts, their behind-the-scenes content. Use specific music industry language - talk about A&Rs, streaming playlists, venue booking, social media presence, release strategies. Name specific artists as examples throughout.
+${INTEGRITY_RULES}
 
-The reader should finish this and feel both seen and slightly unsettled by how accurate it is.
+The reader should finish feeling seen and slightly unsettled by the accuracy,
+because it is precise about their archetype, not because you pretended to know
+their life.
 `;
 
 export const FULL_REPORT_PROMPT = (context: ArchetypePromptContext) => `
-You are a master music industry mentor with 20+ years experience working with artists across all genres. This is the COMPLETE Artist Blueprint - the full download on this ${context.primary}/${context.secondary} artist.
+You are a master music industry mentor with 20+ years guiding artists across
+genres. This is the COMPLETE Artist Blueprint, the full read on this artist.
 
-BASIC SECTIONS (expand from basic prompt):
 ${BASIC_REPORT_PROMPT(context)}
 
-ADDITIONAL FULL SECTIONS (2,500-3,000 additional words):
+Now continue with the ADDITIONAL blueprint sections (2,500 to 3,000 more words),
+same voice, same rules, each heading in "## " form:
 
 ## Your Shadow Archetype
-- The anti-pattern you fall into under pressure
-- How your ${context.primary} turns dark when you're stressed, broke, or desperate
-- The creative decisions that come from shadow mode (and why they usually flop)
-- How this sabotages your music career specifically
-- Industry horror stories of ${context.primary} artists who went full shadow
-- The early warning signs and how to catch yourself
+The anti-pattern under pressure: how the primary turns dark when stressed, broke,
+or desperate; the decisions that come from that mode and why they backfire; the
+early warning signs and how to catch it.
 
-## Your Character Arc Map
-- WHERE YOU ARE NOW: Current stage of your artistic evolution
-- THE JOURNEY: How your ${context.primary}/${context.secondary} combination naturally evolves
-- YOUR FINAL FORM: The master-level artist you're growing toward
-- The predictable crisis points every ${context.primary} faces
-- What "making it" actually looks like for your archetype (hint: it's not what you think)
+## Your Character Arc
+Where they are now in their evolution, how this archetype blend naturally matures,
+and the master-level artist they are growing toward. Include the predictable crisis
+points this type hits, and what "making it" actually looks like for them.
 
 ## The Archetype Tension
-- Where your ${context.primary} and ${context.secondary} traits clash
-- The creative friction this creates (and why it's your secret weapon)
-- Musical genres that live in this tension zone
-- How to lean into the contradiction instead of resolving it
-- The genre-bending magic that only YOUR combination can create
+Where the primary and secondary clash, why that friction is a creative asset rather
+than a flaw, and the sound that lives in that tension zone only this blend can make.
 
-## Your 90-Day Artist Growth Roadmap
-Week-by-week action plan tailored to your archetype:
+## Your 90-Day Positioning Roadmap
+A concrete plan, grounded in this archetype:
+WEEKS 1 to 4, BRAND CLARITY: visual identity and content moves that fit the type.
+WEEKS 5 to 8, CREATIVE MOMENTUM: writing and production experiments for this type.
+WEEKS 9 to 12, INDUSTRY POSITIONING: release, playlist, and live-show strategy, and
+network moves that suit them. Make each item specific and actionable, not vague.
 
-WEEKS 1-4: BRAND CLARITY
-- Specific visual identity moves
-- Social media strategy for ${context.primary} types
-- Content creation that aligns with your archetype
-
-WEEKS 5-8: CREATIVE MOMENTUM  
-- Songwriting exercises designed for your type
-- Production experiments that stretch your sonic signature
-- Collaboration strategies based on your archetype compatibility
-
-WEEKS 9-12: INDUSTRY POSITIONING
-- Release strategy for ${context.primary} artists
-- Playlist pitching approach
-- Live performance goals and venue targeting
-- Network building tactics that work for your type
-
-## Relationship with Collaborators
-- Which archetypes you should actively seek to work with
-- The types that will drain your creative energy
-- How to spot your creative soulmates in the industry
-- Producer archetypes that bring out your best vs. worst
-- Building your creative circle: the 5 people every ${context.primary} needs
+## Your Collaborators
+Which archetypes bring out their best and which drain them; how to recognise a
+creative match; the small circle this type needs to do their strongest work.
 
 ## Your Artist Manifesto
-A 200-word personal manifesto that captures your artistic essence. Something you could literally put in your bio, pin to your studio wall, or read before big performances. Written in your voice, capturing your ${context.primary}/${context.secondary} energy and mission as an artist.
+A 200-word manifesto in their voice, capturing this blend and their mission,
+something they could pin to the studio wall or read before a set. No cliches.
 
-WRITING GUIDELINES:
-- Use real artist examples throughout (name names)
-- Reference specific music industry contexts (streaming, live shows, social media, label meetings)
-- Include actionable advice, not vague inspiration
-- Make it uncomfortably accurate - like you've been stalking their Instagram
-- Address common ${context.primary} career challenges with specific solutions
-- End each section with a provocative question or challenge
+${INTEGRITY_RULES}
 `;
 
-// Helper function to generate reports
 export const generateReportPrompt = (
   tier: 'basic' | 'full',
   primary: Archetype,
-  secondary: Archetype
+  secondary: Archetype,
+  profile?: ResonanceEntry[]
 ): string => {
-  const primaryData = ARCHETYPE_DATA[primary];
-  const secondaryData = ARCHETYPE_DATA[secondary];
-
   const context: ArchetypePromptContext = {
     primary,
     secondary,
-    primaryData,
-    secondaryData
+    primaryData: ARCHETYPE_DATA[primary],
+    secondaryData: ARCHETYPE_DATA[secondary],
+    profile,
   };
 
   switch (tier) {

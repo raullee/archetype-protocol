@@ -86,6 +86,22 @@ function ReportContent() {
       setLoading(true);
       setError(null);
 
+      // Recover the full resonance profile saved on the results page so the
+      // report reflects the whole spectrum. Absent (e.g. paid on another device)
+      // -> the API falls back to primary/secondary. Guard that the saved profile
+      // actually matches this report's primary, so a stale profile from an
+      // earlier different result is never applied.
+      let profile: { archetype: string; percentage: number }[] | undefined;
+      try {
+        const raw = localStorage.getItem('ap_profile');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed[0]?.archetype === primary) {
+            profile = parsed;
+          }
+        }
+      } catch { /* ignore, fall back to top-2 */ }
+
       const response = await fetch('/api/generate-report', {
         method: 'POST',
         headers: {
@@ -94,7 +110,8 @@ function ReportContent() {
         body: JSON.stringify({
           primary,
           secondary,
-          tier
+          tier,
+          profile,
         }),
       });
 

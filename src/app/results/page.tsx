@@ -243,6 +243,18 @@ function ResultsContent() {
 
   const result = answers.length > 0 ? getTopArchetypes(answers) : null;
 
+  // Persist the full 12-way resonance profile so the paid report can be written
+  // from the reader's whole spectrum, not just their top two. This must go via
+  // localStorage because the Stripe checkout redirect strips everything except
+  // the archetypes in the success_url; localStorage survives the round-trip.
+  useEffect(() => {
+    if (!result) return;
+    try {
+      const profile = result.all.map((r) => ({ archetype: r.archetype, percentage: r.percentage }));
+      localStorage.setItem("ap_profile", JSON.stringify(profile));
+    } catch { /* private mode / quota — report falls back to top-2 */ }
+  }, [result]);
+
   // Read bundle unlock from localStorage on mount. BundleRedeemer in the layout sets this
   // after a successful /api/redeem-bundle round-trip.
   useEffect(() => {

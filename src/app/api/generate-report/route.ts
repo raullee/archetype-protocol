@@ -1,12 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { generateReportPrompt } from '@/lib/report-prompts';
+import { generateReportPrompt, ResonanceEntry } from '@/lib/report-prompts';
 import { Archetype, ARCHETYPE_DATA } from '@/lib/archetypes';
 
-// Initialize Gemini API
-const genAI = new GoogleGenerativeAI(
-  process.env.GEMINI_API_KEY!
-);
+// Reports run through OpenRouter, not the direct Google key. OpenRouter carries
+// its own billing, so gemini-2.5-pro is reachable (the direct free-tier key is
+// blocked from pro, which is why the live product was silently serving the mock).
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_KEY = (process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_KEY)?.trim();
+
+// Each tier has a MODEL CHAIN tried in order; first success wins, mock is the
+// last resort only if every model fails. Full blueprint leads with pro (worth
+// the quality on the paid tier) and falls back to flash; basic runs on flash.
+const MODEL_CHAIN: Record<string, string[]> = {
+  full: ['google/gemini-2.5-pro', 'google/gemini-2.5-flash'],
+  basic: ['google/gemini-2.5-flash'],
+};
+
+async function generateWithFallback(
+  models: string[],
+  prompt: string
+): Promise<{ text: string; model: string }> {
+  if (!OPENROUTER_KEY) throw new Error('OPENROUTER_API_KEY is not set');
+  let lastErr: unknown;
+  for (const name of models) {
+    try {
+      const res = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://archetype.syncprimitive.com',
+          'X-Title': 'The Archetype Protocol',
+        },
+        body: JSON.stringify({
+          model: name,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.85,
+          top_p: 0.95,
+          max_tokens: 16384,
+        }),
+      });
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(`OpenRouter ${res.status}: ${detail.slice(0, 200)}`);
+      }
+      const data = await res.json();
+      const text: string = data?.choices?.[0]?.message?.content ?? '';
+      if (text && text.trim().length > 200) return { text, model: name };
+      lastErr = new Error(`Empty/short response from ${name}`);
+    } catch (e) {
+      lastErr = e;
+      console.error(`[archetype][gen] ${name} failed:`, e instanceof Error ? e.message : e);
+    }
+  }
+  throw lastErr ?? new Error('All models failed');
+}
 
 interface ReportSection {
   title: string;
@@ -36,6 +84,9 @@ export async function POST(request: NextRequest) {
   try {
     requestData = await request.json();
     const { primary, secondary, tier } = requestData;
+    // Optional 12-way resonance profile from the results page. When present the
+    // report is personalised to the reader's full spectrum, not just their top 2.
+    const profile = (requestData as { profile?: ResonanceEntry[] }).profile;
 
     if (!primary || !secondary || !tier) {
       return NextResponse.json(
@@ -52,29 +103,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate the prompt
-    const prompt = generateReportPrompt(tier, primary as Archetype, secondary as Archetype);
-    
-    // Call Gemini API
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash",
-      generationConfig: {
-        temperature: 0.8,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 8192,
-      }
-    });
+    const prompt = generateReportPrompt(tier, primary as Archetype, secondary as Archetype, profile);
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const generatedText = response.text();
+    // Try the tier's model chain; real models first, mock only if all fail.
+    const { text: rawText, model: usedModel } = await generateWithFallback(
+      MODEL_CHAIN[tier] ?? ['google/gemini-2.5-flash'],
+      prompt
+    );
+    console.log(`[archetype][gen] ${tier} report via ${usedModel}`);
 
-    if (!generatedText) {
-      return NextResponse.json(
-        { error: 'Failed to generate report content' },
-        { status: 500 }
-      );
-    }
+    const generatedText = sanitizeReportText(rawText);
 
     // Parse the generated content into sections
     const sections = parseReportSections(generatedText, tier);
@@ -108,21 +146,35 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Enforces the no-em-dash house rule deterministically. Prompt instructions alone
+ * are unreliable (models emit them anyway), so we strip at the boundary:
+ *   " — " (spaced)  -> "; "   (it was joining two clauses)
+ *   "word—word"     -> ", "   (tight em/en dash inside a phrase)
+ * Hyphens in ranges like "3-5" are left untouched.
+ */
+function sanitizeReportText(text: string): string {
+  return text
+    .replace(/\s+[—–]\s+/g, '; ')
+    .replace(/([^\s])[—–]([^\s])/g, '$1, $2')
+    .replace(/[—–]/g, ', ');
+}
+
 function generateMockReport(primary: string, secondary: string, tier: string): GeneratedReport {
   const mockSections: ReportSection[] = [
     {
       title: "Your Artist Archetype Essence",
-      content: `As a ${primary}-${secondary} combination, you embody the perfect fusion of ${primary.toLowerCase()} energy and ${secondary.toLowerCase()} characteristics. This unique blend creates a powerhouse of creative potential that sets you apart in the artistic landscape.\n\nYour ${primary} core drives you to push boundaries and explore uncharted territories, while your ${secondary} influence provides the structural foundation that turns your visions into reality. This combination is rare and potent — less than 12% of artists possess this specific archetype pairing.\n\nWhat makes your profile particularly compelling is how these two forces work in harmony rather than opposition. Where the ${primary} seeks transformation, the ${secondary} provides the means. Where the ${secondary} offers stability, the ${primary} injects innovation.`,
-      pullQuote: `Your ${primary}-${secondary} combination is a rare fusion that only 12% of artists possess — you're part of an elite creative minority.`
+      content: `As a ${primary}-${secondary} combination, you carry the fusion of ${primary.toLowerCase()} drive and ${secondary.toLowerCase()} instinct. This blend shapes how you show up as an artist and where your work naturally wants to go.\n\nYour ${primary} core pushes you to lead with vision, while your ${secondary} influence gives that vision its form. The two are not in conflict; they hand off to each other. Where the ${primary} reaches for the idea, the ${secondary} makes it land.\n\nWhat makes this pairing compelling is the handoff itself. It is the thing your audience feels even when they cannot name it.`,
+      pullQuote: `Where the ${primary} reaches for the idea, the ${secondary} makes it land.`
     },
     {
       title: "Your Creative Superpowers",
-      content: `Your artistic toolkit is uniquely calibrated for breakthrough innovation. As a ${primary}, you possess an innate ability to see patterns and possibilities that others miss entirely. This isn't just creativity — it's creative prescience.\n\nYour ${secondary} nature amplifies this gift by providing the courage and determination to act on your insights. While other artists might hesitate or second-guess their vision, you move forward with conviction. This creates a competitive advantage that's nearly impossible to replicate.\n\nIn collaborative settings, you naturally become the catalyst — the person who sparks new directions and possibilities. Your ideas don't just inspire; they ignite movements. Teams gravitate toward your energy because you make the impossible feel achievable.`,
+      content: `Your artistic toolkit is uniquely calibrated for breakthrough innovation. As a ${primary}, you possess an innate ability to see patterns and possibilities that others miss entirely. This isn't just creativity; it's creative prescience.\n\nYour ${secondary} nature amplifies this gift by providing the courage and determination to act on your insights. While other artists might hesitate or second-guess their vision, you move forward with conviction. This creates a competitive advantage that's nearly impossible to replicate.\n\nIn collaborative settings, you naturally become the catalyst; the person who sparks new directions and possibilities. Your ideas don't just inspire; they ignite movements. Teams gravitate toward your energy because you make the impossible feel achievable.`,
       pullQuote: "Your ideas don't just inspire; they ignite movements."
     },
     {
       title: "Your Shadow & Growth Edge",
-      content: `Every archetype has its shadow, and yours manifests in the tendency to become impatient with slower-moving creative processes. Your rapid ideation and decisive nature can sometimes leave collaborators feeling overwhelmed or excluded.\n\nThe key growth opportunity lies in learning to modulate your intensity without dimming your creative fire. This means developing patience for the organic unfolding that great art sometimes requires, and creating space for others to contribute meaningfully to your vision.\n\nWhen you master this balance, your creative output doesn't just improve — it becomes transcendent. The most successful artists with your archetype learn to be both the lightning and the lightning rod.`,
+      content: `Every archetype has its shadow, and yours manifests in the tendency to become impatient with slower-moving creative processes. Your rapid ideation and decisive nature can sometimes leave collaborators feeling overwhelmed or excluded.\n\nThe key growth opportunity lies in learning to modulate your intensity without dimming your creative fire. This means developing patience for the organic unfolding that great art sometimes requires, and creating space for others to contribute meaningfully to your vision.\n\nWhen you master this balance, your creative output doesn't just improve; it becomes transcendent. The most successful artists with your archetype learn to be both the lightning and the lightning rod.`,
       pullQuote: "Learn to be both the lightning and the lightning rod."
     }
   ];
@@ -131,8 +183,8 @@ function generateMockReport(primary: string, secondary: string, tier: string): G
     mockSections.push(
       {
         title: "Your Artistic Legacy Blueprint",
-        content: `Your ${primary}-${secondary} archetype is destined to leave a mark that extends far beyond individual works. You're building toward a legacy of transformation — not just in what you create, but in how you change the creative landscape itself.\n\nHistorically, artists with your archetype combination have been the ones who define new movements, challenge established norms, and open entirely new creative territories. Think of the artists who didn't just excel in their medium — they redefined what the medium could be.\n\nYour path isn't about fitting into existing categories; it's about creating new ones. The work you produce in the next 3-5 years will likely establish patterns and themes that define your artistic identity for decades to come.`,
-        pullQuote: "You're not just creating art — you're creating new artistic territories."
+        content: `Your ${primary}-${secondary} archetype is destined to leave a mark that extends far beyond individual works. You're building toward a legacy of transformation; not just in what you create, but in how you change the creative landscape itself.\n\nHistorically, artists with your archetype combination have been the ones who define new movements, challenge established norms, and open entirely new creative territories. Think of the artists who didn't just excel in their medium; they redefined what the medium could be.\n\nYour path isn't about fitting into existing categories; it's about creating new ones. The work you produce in the next 3-5 years will likely establish patterns and themes that define your artistic identity for decades to come.`,
+        pullQuote: "You're not just creating art; you're creating new artistic territories."
       },
       {
         title: "Your Ideal Creative Environment",
@@ -203,10 +255,27 @@ function parseReportSections(generatedText: string, tier: string): ReportSection
 }
 
 export async function GET(request: NextRequest) {
-  // Health check endpoint
-  return NextResponse.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    geminiConfigured: !!process.env.GEMINI_API_KEY 
-  });
+  // Health check. `?live=1` actually round-trips a tiny generation through
+  // OpenRouter so a broken/expired key surfaces here instead of silently
+  // degrading to the mock (the exact failure that hid the last outage). The
+  // bare check only reports whether a key string is present.
+  const configured = !!OPENROUTER_KEY;
+  const live = request.nextUrl.searchParams.get('live') === '1';
+
+  if (!live) {
+    return NextResponse.json({ status: 'ok', configured, provider: 'openrouter' });
+  }
+
+  try {
+    const { model } = await generateWithFallback(
+      ['google/gemini-2.5-flash'],
+      'Reply with the single word: ok'
+    );
+    return NextResponse.json({ status: 'ok', configured, provider: 'openrouter', reachable: true, model });
+  } catch (e) {
+    return NextResponse.json(
+      { status: 'degraded', configured, provider: 'openrouter', reachable: false, error: e instanceof Error ? e.message : String(e) },
+      { status: 503 }
+    );
+  }
 }
