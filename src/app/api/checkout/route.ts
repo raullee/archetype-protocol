@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { PRICING, TIER_NAMES, currencyForCountry, isTier } from "@/lib/pricing";
+import { resolveCountry } from "@/lib/geo";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
+
+// Pricing depends on the caller's geo, so this must never be cached.
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   if (!stripeSecretKey) {
@@ -15,27 +20,29 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { archetypes = [], tier = "full", price, productName } = body;
+    const { archetypes = [], tier = "full" } = body;
 
-    // Default pricing if not provided
-    const priceMap: Record<string, number> = { basic: 1299, full: 2499 };
-    const nameMap: Record<string, string> = {
-      basic: "Basic Artist Archetype Profile",
-      full: "Complete Artist Blueprint",
-    };
+    // Server-authoritative pricing. The browser supplies NEITHER amount NOR
+    // currency -- both are derived here from the edge geo header, which a client
+    // cannot forge. Any price/currency/productName in the body is ignored.
+    if (!isTier(tier)) {
+      return NextResponse.json({ error: `Unknown tier: ${tier}` }, { status: 400 });
+    }
 
-    const unitAmount = price || priceMap[tier] || 1999;
-    const name = productName || nameMap[tier] || "Full Archetype Blueprint";
+    const country = resolveCountry(request.headers, new URL(request.url));
+    const currency = currencyForCountry(country);
+    const unitAmount = PRICING[currency][tier];
+    const name = TIER_NAMES[tier];
 
     const primaryArchetype = archetypes[0] || "Unknown";
 
-    const origin = request.headers.get("origin") || "https://archetype.raul.my";
+    const origin = request.headers.get("origin") || "https://archetype.syncprimitive.com";
     const session = await stripe.checkout.sessions.create({
       // Omit payment_method_types so Stripe Checkout adaptively enables Card + Apple Pay + Google Pay + Link.
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency,
             product_data: {
               name,
               description: `Your complete ${primaryArchetype} archetype analysis`,
@@ -51,6 +58,8 @@ export async function POST(request: Request) {
       metadata: {
         archetypes: archetypes.join(","),
         tier,
+        country: country || "unknown",
+        pricing_currency: currency,
       },
       customer_creation: "if_required",
       allow_promotion_codes: true,

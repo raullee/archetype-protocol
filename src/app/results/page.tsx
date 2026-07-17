@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { trackArchetypeResultView, trackPaymentClick, trackShareResult, trackCtaClick } from "@/lib/analytics";
+import type { PricingPayload } from "@/lib/pricing";
+import { pricingPayload } from "@/lib/pricing";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Crown, Palette, Heart, Sun, BookOpen, Compass, Zap, Sparkles, Shield, HeartHandshake, Laugh, Users,
@@ -19,24 +21,6 @@ const ICON_MAP: Record<string, React.ElementType> = {
 
 const SHAPE_COLORS = ["#D02020", "#1040C0", "#F0C020"];
 
-// ── Social proof ticker data ──────────────────────────────────────────
-const SOCIAL_PROOF_NAMES = [
-  { name: "Emma", city: "Melbourne", archetype: "Creator" },
-  { name: "James", city: "London", archetype: "Sage" },
-  { name: "Sarah", city: "Toronto", archetype: "Explorer" },
-  { name: "Marcus", city: "Berlin", archetype: "Outlaw" },
-  { name: "Priya", city: "Singapore", archetype: "Ruler" },
-  { name: "Liam", city: "Dublin", archetype: "Hero" },
-  { name: "Yuki", city: "Tokyo", archetype: "Magician" },
-  { name: "Sofia", city: "Barcelona", archetype: "Lover" },
-  { name: "Alex", city: "New York", archetype: "Jester" },
-  { name: "Fatima", city: "Dubai", archetype: "Caregiver" },
-  { name: "Oliver", city: "Sydney", archetype: "Everyman" },
-  { name: "Nina", city: "Stockholm", archetype: "Innocent" },
-  { name: "Carlos", city: "S\u00e3o Paulo", archetype: "Hero" },
-  { name: "Hannah", city: "Amsterdam", archetype: "Creator" },
-  { name: "Raj", city: "Mumbai", archetype: "Sage" },
-];
 
 // ── Locked section data with curiosity-gap teasers ────────────────────
 const LOCKED_SECTIONS: Record<Archetype, { title: string; teaser: string; preview: string }[]> = (() => {
@@ -142,73 +126,6 @@ const ARCHETYPE_INSIGHTS: Record<Archetype, { personality: string; topStrength: 
   },
 };
 
-// ── Session timer hook ────────────────────────────────────────────────
-function useSessionTimer() {
-  const [remaining, setRemaining] = useState<string>("");
-  const [expiresAt] = useState(() => {
-    if (typeof window === "undefined") return Date.now() + 24 * 60 * 60 * 1000;
-    const stored = localStorage.getItem("ap_session_expires");
-    if (stored) return parseInt(stored, 10);
-    const exp = Date.now() + 24 * 60 * 60 * 1000;
-    localStorage.setItem("ap_session_expires", exp.toString());
-    return exp;
-  });
-
-  useEffect(() => {
-    const tick = () => {
-      const diff = Math.max(0, expiresAt - Date.now());
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setRemaining(`${h}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [expiresAt]);
-
-  return remaining;
-}
-
-// ── Social proof ticker component ─────────────────────────────────────
-function SocialProofTicker() {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setIndex((i) => (i + 1) % SOCIAL_PROOF_NAMES.length);
-    }, 17000);
-    return () => clearInterval(id);
-  }, []);
-
-  const person = SOCIAL_PROOF_NAMES[index];
-
-  return (
-    <div className="fixed bottom-6 left-6 z-40">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={index}
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -10, scale: 0.95 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="bg-white border-2 border-[#121212] shadow-hard-sm px-4 py-3 flex items-center gap-3 max-w-xs"
-        >
-          <div className="w-8 h-8 bg-[#D02020] flex items-center justify-center text-xs font-bold text-white">
-            {person.name[0]}
-          </div>
-          <div>
-            <p className="text-xs text-[#121212]/70">
-              <span className="font-bold text-[#121212]">{person.name}</span> from {person.city}
-            </p>
-            <p className="text-xs text-[#121212]/40">just discovered they&apos;re The {person.archetype}</p>
-          </div>
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  );
-}
-
 // ── Radar chart (SVG) ─────────────────────────────────────────────────
 function RadarChart({ scores }: { scores: ArchetypeResult[] }) {
   const topScores = scores.filter((s) => s.score > 0).slice(0, 8);
@@ -294,7 +211,7 @@ function RadarChart({ scores }: { scores: ArchetypeResult[] }) {
               textAnchor="middle"
               dominantBaseline="middle"
               className="fill-[#121212]/60 text-[10px]"
-              style={{ fontFamily: "'Outfit', sans-serif", textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}
+              style={{ fontFamily: "var(--font-outfit), 'Outfit', sans-serif", textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}
             >
               {s.archetype}
             </text>
@@ -311,10 +228,14 @@ function ResultsContent() {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedTier, setSelectedTier] = useState<"basic" | "full">("full");
+  // Geo-resolved pricing (MYR in Malaysia, USD elsewhere). Fetched rather than
+  // rendered server-side because the price must never be cached per-region.
+  // On failure we fall back to the GLOBAL USD tier, never the local one -- fail
+  // to the higher price, so a geo outage can't hand the world ringgit rates.
+  const [pricing, setPricing] = useState<PricingPayload | null>(null);
   // Bundle unlock state — populated from localStorage flag set by BundleRedeemer.
   // null = not yet checked (SSR), undefined = no unlock, string = sessionId of valid bundle.
   const [bundleSessionId, setBundleSessionId] = useState<string | null | undefined>(null);
-  const sessionTimer = useSessionTimer();
 
   const answersParam = searchParams.get("a") || searchParams.get("archetypes") || "";
   const answers = answersParam.split(",").filter(Boolean) as Archetype[];
@@ -345,28 +266,30 @@ function ResultsContent() {
     return () => clearTimeout(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleCheckout = useCallback((tier: string) => {
-    const priceMap: Record<string, number> = { basic: 999, full: 1999 };
-    const priceDisplay: Record<string, string> = { basic: "9.99", full: "19.99" };
-    const nameMap: Record<string, string> = {
-      basic: "Basic Archetype Report",
-      full: "Full Archetype Blueprint (Text + Audio + PDF)",
-    };
-    trackPaymentClick(tier, priceDisplay[tier] || "0", result ? result.primary.archetype : "Unknown");
+  useEffect(() => {
+    fetch("/api/pricing")
+      .then((r) => r.json())
+      .then(setPricing)
+      .catch(() => setPricing(pricingPayload(null)));
+  }, []);
+
+  const handleCheckout = useCallback((tier: "basic" | "full") => {
+    const amount = pricing ? (pricing.tiers[tier].minorUnits / 100).toFixed(2) : "0";
+    trackPaymentClick(tier, amount, result ? result.primary.archetype : "Unknown", pricing?.currency);
+    // Currency and amount are decided server-side from edge geo; sending them
+    // from here would let the browser pick its own price.
     fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         archetypes: result ? [result.primary.archetype, result.secondary.archetype] : [],
         tier,
-        price: priceMap[tier],
-        productName: nameMap[tier],
       }),
     })
       .then((r) => r.json())
       .then((data) => { if (data.url) window.location.href = data.url; })
       .catch(console.error);
-  }, [result]);
+  }, [result, pricing]);
 
   if (!result) {
     return (
@@ -402,9 +325,6 @@ function ResultsContent() {
 
   return (
     <div className="min-h-screen bg-[#F0F0F0]">
-      {/* Social proof ticker */}
-      <SocialProofTicker />
-
       {/* The Reveal */}
       <AnimatePresence>
         {!revealed && (
@@ -452,12 +372,12 @@ function ResultsContent() {
 
       {/* Main Content */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.8 }}>
-        {/* Session timer bar */}
+        {/* Header bar */}
         <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b-4 border-[#121212]">
           <div className="max-w-3xl mx-auto px-6 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2 bauhaus-label text-[#121212]/50">
               <Clock className="w-3 h-3" />
-              <span>Analysis expires in <span className="text-[#D02020] font-bold" style={{ animation: 'timer-pulse 2s ease-in-out infinite', display: 'inline-block' }}>{sessionTimer}</span></span>
+              <span>Your archetype analysis</span>
             </div>
             {formatQuizTime() && (
               <div className="flex items-center gap-2 bauhaus-label text-[#121212]/40">
@@ -652,7 +572,7 @@ function ResultsContent() {
           <section className="py-12 px-6">
             <div className="max-w-2xl mx-auto">
               <div className="text-center mb-8">
-                <p className="text-[#121212]/40 text-sm line-through mb-1 font-medium">$200/hr therapy session</p>
+                <p className="text-[#121212]/40 text-sm line-through mb-1 font-medium">{pricing?.anchor ?? " "}</p>
                 <h2 className="font-black text-2xl sm:text-3xl uppercase tracking-tighter">Unlock Your Full Blueprint</h2>
               </div>
 
@@ -664,7 +584,7 @@ function ResultsContent() {
                   className={`bauhaus-card p-8 text-left transition-all cursor-pointer ${selectedTier === "basic" ? "border-[#1040C0] bg-[#1040C0]/5" : ""}`}
                 >
                   <h4 className="font-bold uppercase tracking-tight mb-1">Basic Report</h4>
-                  <p className="text-2xl font-black mb-2">$9.99</p>
+                  <p className="text-2xl font-black mb-2">{pricing?.tiers.basic.display ?? "—"}</p>
                   <ul className="space-y-1.5 text-xs text-[#121212]/50 font-medium">
                     <li>+ Full text analysis</li>
                     <li>+ All 5 locked sections</li>
@@ -682,7 +602,7 @@ function ResultsContent() {
                     Most Popular
                   </div>
                   <h4 className="font-bold uppercase tracking-tight mb-1">Full Blueprint</h4>
-                  <p className="text-2xl font-black text-[#D02020] mb-2">$19.99</p>
+                  <p className="text-2xl font-black text-[#D02020] mb-2">{pricing?.tiers.full.display ?? "—"}</p>
                   <ul className="space-y-1.5 text-xs text-[#121212]/60 font-medium">
                     <li>+ Full text analysis</li>
                     <li>+ All 5 locked sections</li>
@@ -698,7 +618,7 @@ function ResultsContent() {
                   onClick={() => handleCheckout(selectedTier)}
                   className="btn-bauhaus-red btn-press inline-flex items-center gap-2 font-bold px-10 py-4 text-lg cursor-pointer"
                 >
-                  Unlock {selectedTier === "basic" ? "Basic Report" : "Full Blueprint"} -- ${selectedTier === "basic" ? "9.99" : "19.99"}
+                  Unlock {selectedTier === "basic" ? "Basic Report" : "Full Blueprint"} -- {pricing?.tiers[selectedTier].display ?? "—"}
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </div>

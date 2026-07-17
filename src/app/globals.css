@@ -33,8 +33,11 @@
   --radius-full: 9999px;
 }
 
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
+/* Outfit is self-hosted by next/font/google in layout.tsx, exposed as
+   --font-outfit. The old `@import url(fonts.googleapis.com/...)` that lived here
+   was dead code: `@import "tailwindcss"` above expands to ~2160 rules, so this
+   sat after them, and a CSS @import preceded by rules is invalid and dropped by
+   every browser. Use the variable, not a bare 'Outfit' family name. */
 
 @layer base {
   * {
@@ -42,7 +45,7 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Outfit', var(--font-outfit), sans-serif;
+    font-family: var(--font-outfit), 'Outfit', sans-serif;
   }
 }
 

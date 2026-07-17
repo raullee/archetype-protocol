@@ -346,7 +346,7 @@ function ReportContent() {
 
                   <div
                     className="text-lg leading-relaxed text-[#121212]/60 font-medium"
-                    style={{ fontFamily: "'Outfit', sans-serif" }}
+                    style={{ fontFamily: "var(--font-outfit), 'Outfit', sans-serif" }}
                     dangerouslySetInnerHTML={{
                       __html: formatContent(section.content)
                     }}

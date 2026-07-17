@@ -114,31 +114,45 @@ export function trackArchetypeResultView(primaryArchetype: string, secondaryArch
 
 // ── Payment / Paywall ───────────────────────────────────────────────────
 
-export function trackPaymentClick(tier: string, price: string, archetype: string) {
+export function trackPaymentClick(tier: string, price: string, archetype: string, currency: string = "usd") {
   const priceNum = parseFloat(price);
   gtag("event", "payment_click", {
     event_category: "Revenue",
     event_label: tier,
     value: priceNum,
-    currency: "USD",
+    currency: currency.toUpperCase(),
     tier,
     archetype,
   });
   trackPixelInitiateCheckout(tier, priceNum, archetype);
 }
 
-/** Tier → fallback price in USD. Used when amount isn't passed in. */
-const TIER_PRICES: Record<string, number> = { basic: 12.99, full: 24.99 };
+/**
+ * Tier → fallback price, per currency. Currency MUST be reported accurately: GA4
+ * converts `value` using the declared `currency`, so labelling a RM 95 sale as
+ * USD would inflate reported revenue roughly fourfold.
+ */
+const TIER_PRICES: Record<string, Record<string, number>> = {
+  usd: { basic: 18.99, full: 28.99 },
+  myr: { basic: 39.9, full: 95 },
+};
 
-export function trackPaymentSuccess(tier: string, archetype: string, sessionId?: string, amountUSD?: number) {
-  const value = amountUSD ?? TIER_PRICES[tier] ?? 24.99;
+export function trackPaymentSuccess(
+  tier: string,
+  archetype: string,
+  sessionId?: string,
+  amount?: number,
+  currency: string = "usd",
+) {
+  const cur = currency.toLowerCase();
+  const value = amount ?? TIER_PRICES[cur]?.[tier] ?? TIER_PRICES.usd.full;
   gtag("event", "purchase", {
     event_category: "Revenue",
     event_label: tier,
     tier,
     archetype,
     value,
-    currency: "USD",
+    currency: cur.toUpperCase(),
     transaction_id: sessionId,
   });
   // Pixel Purchase dedupes against the Stripe-webhook server-side Purchase via shared event_id = `purchase-<sessionId>`.

@@ -15,11 +15,23 @@ function SuccessContent() {
 
   useEffect(() => {
     captureAttribution();
-    if (archetypes) {
-      const primaryArchetype = archetypes.split(",")[0] || "Unknown";
-      // Pass session_id as transaction_id so GA4 dedupes purchase events.
-      trackPaymentSuccess(tier, primaryArchetype, sessionId || undefined);
+    if (!archetypes) return;
+    const primaryArchetype = archetypes.split(",")[0] || "Unknown";
+
+    // Report what was ACTUALLY charged (post-discount, post-geo) rather than the
+    // list price, so referral-code sales don't overstate revenue. Falls back to
+    // the tier price if the lookup fails -- a slightly wrong number beats none.
+    if (!sessionId) {
+      trackPaymentSuccess(tier, primaryArchetype);
+      return;
     }
+    fetch(`/api/session-summary?session_id=${encodeURIComponent(sessionId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        // Pass session_id as transaction_id so GA4 dedupes purchase events.
+        trackPaymentSuccess(tier, primaryArchetype, sessionId, s?.amount, s?.currency);
+      })
+      .catch(() => trackPaymentSuccess(tier, primaryArchetype, sessionId));
   }, [archetypes, tier, sessionId]);
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Star, Brain, Eye, ChevronRight, Crown, Palette, Heart, Sun, BookOpen, Compass, Zap, Sparkles, Shield, HeartHandshake, Laugh, Users } from "lucide-react";
+import { ArrowRight, Brain, Eye, ChevronRight, Crown, Palette, Heart, Sun, BookOpen, Compass, Zap, Sparkles, Shield, HeartHandshake, Laugh, Users } from "lucide-react";
 import { ALL_ARCHETYPES, ARCHETYPE_DATA } from "@/lib/archetypes";
 import { trackCtaClick } from "@/lib/analytics";
 
@@ -171,17 +171,17 @@ export default function LandingPage() {
         <div className="absolute bottom-0 left-0 right-0 h-4 bg-[var(--ink)]" />
       </section>
 
-      {/* Social Proof - Yellow section */}
+      {/* Framework strip - Yellow section */}
       <section className="py-12 px-6 bg-[#F0C020] border-b-4 border-[var(--ink)]">
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-8 text-sm text-[var(--ink)]">
           <div className="flex items-center gap-2">
-            <span className="font-black text-lg">47,000+</span>
-            <span className="font-bold uppercase tracking-wider text-xs">archetypes revealed</span>
+            <span className="font-black text-lg">12</span>
+            <span className="font-bold uppercase tracking-wider text-xs">Universal archetypes</span>
           </div>
           <div className="w-[4px] h-6 bg-[var(--ink)] hidden sm:block" />
-          <div className="flex items-center gap-1">
-            {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-[var(--ink)] text-[var(--ink)]" />)}
-            <span className="ml-2 font-bold">4.9/5</span>
+          <div className="flex items-center gap-2">
+            <span className="font-black text-lg">8</span>
+            <span className="font-bold uppercase tracking-wider text-xs">Questions, ~90 seconds</span>
           </div>
           <div className="w-[4px] h-6 bg-[var(--ink)] hidden sm:block" />
           <div className="flex items-center gap-2">
@@ -308,34 +308,28 @@ export default function LandingPage() {
       {/* Section divider */}
       <div className="section-divider" />
 
-      {/* Testimonials - Blue section */}
+      {/* What the report reveals - Blue section */}
       <section className="py-24 px-6 bg-[#1040C0]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <span className="bauhaus-label text-white/50 block mb-4">Testimonials</span>
-            <h2 className="font-black text-3xl sm:text-4xl uppercase tracking-tighter text-white">What People Are Saying</h2>
+            <span className="bauhaus-label text-white/50 block mb-4">Inside the report</span>
+            <h2 className="font-black text-3xl sm:text-4xl uppercase tracking-tighter text-white">What You&rsquo;ll Uncover</h2>
           </div>
           <div className="grid sm:grid-cols-3 gap-6">
             {[
-              { quote: "Finally understood why I keep burning out. My Caregiver archetype explained everything.", name: "Rachel T.", role: "UX Designer" },
-              { quote: "Shared my result with my team. Now we understand each other\u2019s working styles.", name: "David K.", role: "Product Manager" },
-              { quote: "The career section was eerily accurate. Changed my entire job search strategy.", name: "Aisha M.", role: "Marketing Director" },
+              { title: "Your creative blind spot", body: "The pattern that quietly stalls your work, named plainly, with the specific trigger that sets it off.", shape: 0 },
+              { title: "Your shadow archetype", body: "The version of you that takes over under pressure, and why it feels justified in the moment.", body2: "", shape: 1 },
+              { title: "Your artist positioning", body: "How your archetype reads to an audience, and the lane where it lands hardest.", shape: 2 },
             ].map((t, i) => (
               <motion.div key={i} custom={i} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="bauhaus-card p-8 relative">
                 {/* Geometric shape in corner */}
                 <div className="absolute top-3 right-3">
-                  {i === 0 && <div className="w-3 h-3 rounded-full bg-[#D02020]" />}
-                  {i === 1 && <div className="w-3 h-3 bg-[#F0C020]" />}
-                  {i === 2 && <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent border-b-[#D02020]" />}
+                  {t.shape === 0 && <div className="w-3 h-3 rounded-full bg-[#D02020]" />}
+                  {t.shape === 1 && <div className="w-3 h-3 bg-[#F0C020]" />}
+                  {t.shape === 2 && <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent border-b-[#D02020]" />}
                 </div>
-                <div className="flex gap-1 mb-4">
-                  {[...Array(5)].map((_, j) => <Star key={j} className="w-4 h-4 fill-[#F0C020] text-[#F0C020]" />)}
-                </div>
-                <p className="text-[var(--ink)]/60 text-sm leading-relaxed mb-4 font-medium">&ldquo;{t.quote}&rdquo;</p>
-                <div className="text-sm border-t-2 border-[var(--ink)] pt-3 mt-3">
-                  <span className="font-bold">{t.name}</span>
-                  <span className="text-[var(--ink)]/40 ml-2 font-medium">{t.role}</span>
-                </div>
+                <h3 className="font-black uppercase tracking-tight text-lg mb-3">{t.title}</h3>
+                <p className="text-[var(--ink)]/60 text-sm leading-relaxed font-medium">{t.body}</p>
               </motion.div>
             ))}
           </div>
