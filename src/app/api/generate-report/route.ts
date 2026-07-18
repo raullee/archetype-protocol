@@ -43,6 +43,23 @@ async function verifyEntitlement(
     const paid = session.payment_status === 'paid' || session.payment_status === 'no_payment_required';
     if (!paid) return { allowed: false, tier: requestedTier, reason: 'session-unpaid' };
 
+    // Soft anti-reuse cap. One paid session may re-read / re-generate its report
+    // many times (legit reloads + PDF re-downloads) but not be shared to mint
+    // reports for dozens of others. The counter lives on the session metadata, so
+    // no extra store is needed. Strictly best-effort: the read defaults to 0 and
+    // the increment has its own try/catch, so any Stripe hiccup skips the cap -- a
+    // real buyer is NEVER blocked by the mechanism, only by a genuine >= CAP count.
+    const CAP = 40;
+    const used = parseInt((session.metadata && session.metadata.report_gens) || '0', 10) || 0;
+    if (used >= CAP) return { allowed: false, tier: requestedTier, reason: 'session-cap-reached' };
+    try {
+      await stripe.checkout.sessions.update(token, {
+        metadata: { ...(session.metadata || {}), report_gens: String(used + 1) },
+      });
+    } catch (capErr) {
+      console.error('[archetype][entitlement] reuse-cap increment failed (ignored):', capErr instanceof Error ? capErr.message : capErr);
+    }
+
     // A dual bundle unlocks the full blueprint. A direct purchase grants exactly
     // the tier that was paid for, so a basic buyer cannot request the full report.
     const paidTier = session.metadata?.tier;
