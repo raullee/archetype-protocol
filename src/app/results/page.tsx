@@ -11,7 +11,7 @@ import {
   Shield, HeartHandshake, Laugh, Users, Loader2, Clock, Timer,
 } from "lucide-react";
 import Link from "next/link";
-import { trackArchetypeResultView, trackPaymentClick, trackShareResult, trackCtaClick } from "@/lib/analytics";
+import { checkoutAttribution, trackArchetypeResultView, trackPaymentClick, trackShareResult, trackCtaClick } from "@/lib/analytics";
 import type { PricingPayload } from "@/lib/pricing";
 import { pricingPayload } from "@/lib/pricing";
 
@@ -258,13 +258,19 @@ function ResultsContent() {
   // Read bundle unlock from localStorage on mount. BundleRedeemer in the layout sets this
   // after a successful /api/redeem-bundle round-trip.
   useEffect(() => {
+    let storedSessionId: string | undefined;
     try {
       const raw = localStorage.getItem("ap_bundle_unlock");
-      if (!raw) { setBundleSessionId(undefined); return; }
-      const parsed = JSON.parse(raw) as { sessionId?: string };
-      setBundleSessionId(parsed?.sessionId || undefined);
-    } catch {
-      setBundleSessionId(undefined);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { sessionId?: string };
+        storedSessionId = parsed?.sessionId || undefined;
+      }
+    } catch { /* invalid or unavailable storage */ }
+    const timer = window.setTimeout(() => {
+      setBundleSessionId(storedSessionId);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
     }
   }, []);
 
@@ -285,17 +291,19 @@ function ResultsContent() {
       .catch(() => setPricing(pricingPayload(null)));
   }, []);
 
-  const handleCheckout = useCallback((tier: "basic" | "full") => {
+  const handleCheckout = useCallback(async (tier: "basic" | "full") => {
     const amount = pricing ? (pricing.tiers[tier].minorUnits / 100).toFixed(2) : "0";
     trackPaymentClick(tier, amount, result ? result.primary.archetype : "Unknown", pricing?.currency);
     // Currency and amount are decided server-side from edge geo; sending them
     // from here would let the browser pick its own price.
+    const attribution = await checkoutAttribution();
     fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         archetypes: result ? [result.primary.archetype, result.secondary.archetype] : [],
         tier,
+        ...attribution,
       }),
     })
       .then((r) => r.json())

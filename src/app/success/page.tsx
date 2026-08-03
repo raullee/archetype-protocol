@@ -18,20 +18,15 @@ function SuccessContent() {
     if (!archetypes) return;
     const primaryArchetype = archetypes.split(",")[0] || "Unknown";
 
-    // Report what was ACTUALLY charged (post-discount, post-geo) rather than the
-    // list price, so referral-code sales don't overstate revenue. Falls back to
-    // the tier price if the lookup fails -- a slightly wrong number beats none.
-    if (!sessionId) {
-      trackPaymentSuccess(tier, primaryArchetype);
-      return;
-    }
+    // Only a server-confirmed paid session may create a purchase event.
+    if (!sessionId) return;
     fetch(`/api/session-summary?session_id=${encodeURIComponent(sessionId)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((s) => {
-        // Pass session_id as transaction_id so GA4 dedupes purchase events.
-        trackPaymentSuccess(tier, primaryArchetype, sessionId, s?.amount, s?.currency);
+        if (!s?.paid) return;
+        trackPaymentSuccess(s.tier || tier, primaryArchetype, sessionId, s.amount, s.currency);
       })
-      .catch(() => trackPaymentSuccess(tier, primaryArchetype, sessionId));
+      .catch(() => undefined);
   }, [archetypes, tier, sessionId]);
 
   useEffect(() => {
@@ -60,7 +55,7 @@ function SuccessContent() {
             </div>
           </>
         ) : (
-          <p className="text-zinc-400 mb-8">Your archetype report is being prepared. You'll be redirected shortly.</p>
+          <p className="text-zinc-400 mb-8">Your archetype report is being prepared. You&apos;ll be redirected shortly.</p>
         )}
         
         {/* Manual link in case auto-redirect fails */}
@@ -69,7 +64,7 @@ function SuccessContent() {
             href={`/report?archetypes=${archetypes}&tier=${tier}&session_id=${sessionId || ''}`}
             className="text-[#6366F1] hover:underline text-sm"
           >
-            Click here if you're not redirected automatically
+            Click here if you&apos;re not redirected automatically
           </a>
         )}
         <p className="mt-8 text-xs text-zinc-500">

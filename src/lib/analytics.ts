@@ -32,6 +32,7 @@ declare global {
 }
 
 const ATTRIBUTION_KEY = "archetype_attribution";
+const GA_ID = (process.env.NEXT_PUBLIC_GA_ID || "G-M8VKQ3H7R2").trim();
 
 type Attribution = {
   ref?: string;
@@ -39,6 +40,7 @@ type Attribution = {
   utm_medium?: string;
   utm_campaign?: string;
   utm_content?: string;
+  utm_term?: string;
   landing_path?: string;
   first_seen?: number;
 };
@@ -50,11 +52,12 @@ export function captureAttribution(): void {
   if (sessionStorage.getItem(ATTRIBUTION_KEY)) return;
   const params = new URLSearchParams(window.location.search);
   const attr: Attribution = {
-    ref: params.get("ref") || undefined,
-    utm_source: params.get("utm_source") || undefined,
-    utm_medium: params.get("utm_medium") || undefined,
-    utm_campaign: params.get("utm_campaign") || undefined,
-    utm_content: params.get("utm_content") || undefined,
+    ref: params.get("ref")?.trim().toLowerCase() || undefined,
+    utm_source: params.get("utm_source")?.trim().toLowerCase() || undefined,
+    utm_medium: params.get("utm_medium")?.trim().toLowerCase() || undefined,
+    utm_campaign: params.get("utm_campaign")?.trim().toLowerCase() || undefined,
+    utm_content: params.get("utm_content")?.trim().toLowerCase() || undefined,
+    utm_term: params.get("utm_term")?.trim().toLowerCase() || undefined,
     landing_path: window.location.pathname,
     first_seen: Date.now(),
   };
@@ -74,9 +77,36 @@ function getAttribution(): Partial<Attribution> {
 
 function gtag(eventType: string, name: string, params: Record<string, unknown> = {}) {
   if (typeof window !== "undefined" && window.gtag) {
+    captureAttribution();
     // Auto-attach attribution + capture cross-site funnel origin.
-    window.gtag(eventType, name, { ...params, ...getAttribution() });
+    window.gtag(eventType, name, { site_slug: "archetype", ...params, ...getAttribution() });
   }
+}
+
+const getGaField = (field: "client_id" | "session_id"): Promise<string | undefined> =>
+  new Promise((resolve) => {
+    if (typeof window === "undefined" || typeof window.gtag !== "function") return resolve(undefined);
+    let settled = false;
+    const finish = (value?: unknown) => {
+      if (settled) return;
+      settled = true;
+      resolve(typeof value === "string" || typeof value === "number" ? String(value) : undefined);
+    };
+    window.gtag("get", GA_ID, field, finish);
+    window.setTimeout(() => finish(), 400);
+  });
+
+export async function checkoutAttribution(): Promise<Record<string, string>> {
+  captureAttribution();
+  const [clientId, sessionId] = await Promise.all([getGaField("client_id"), getGaField("session_id")]);
+  const campaign = Object.fromEntries(
+    Object.entries(getAttribution()).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+  return {
+    ...(clientId ? { ga_client_id: clientId } : {}),
+    ...(sessionId ? { ga_session_id: sessionId } : {}),
+    ...campaign,
+  };
 }
 
 // ── Quiz funnel ─────────────────────────────────────────────────────────
@@ -116,14 +146,18 @@ export function trackArchetypeResultView(primaryArchetype: string, secondaryArch
 
 export function trackPaymentClick(tier: string, price: string, archetype: string, currency: string = "usd") {
   const priceNum = parseFloat(price);
-  gtag("event", "payment_click", {
+  const eventParams = {
     event_category: "Revenue",
     event_label: tier,
     value: priceNum,
     currency: currency.toUpperCase(),
+    offer_id: `archetype_${tier}`,
     tier,
     archetype,
-  });
+    items: [{ item_id: `archetype_${tier}`, item_name: "Archetype Protocol Report", price: priceNum, quantity: 1 }],
+  };
+  gtag("event", "payment_click", eventParams);
+  gtag("event", "begin_checkout", eventParams);
   trackPixelInitiateCheckout(tier, priceNum, archetype);
 }
 
@@ -154,6 +188,8 @@ export function trackPaymentSuccess(
     value,
     currency: cur.toUpperCase(),
     transaction_id: sessionId,
+    offer_id: `archetype_${tier}`,
+    items: [{ item_id: `archetype_${tier}`, item_name: "Archetype Protocol Report", price: value, quantity: 1 }],
   });
   // Pixel Purchase dedupes against the Stripe-webhook server-side Purchase via shared event_id = `purchase-<sessionId>`.
   if (sessionId) {

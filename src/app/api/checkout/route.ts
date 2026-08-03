@@ -20,7 +20,10 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { archetypes = [], tier = "full" } = body;
+    const {
+      archetypes = [], tier = "full",
+      ga_client_id, ga_session_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+    } = body;
 
     // Server-authoritative pricing. The browser supplies NEITHER amount NOR
     // currency -- both are derived here from the edge geo header, which a client
@@ -56,10 +59,19 @@ export async function POST(request: Request) {
       success_url: `${origin}/success?archetypes=${archetypes.join(",")}&tier=${tier}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/results?a=${archetypes.join(",")}`,
       metadata: {
+        site_slug: "archetype",
+        offer_id: `archetype_${tier}`,
         archetypes: archetypes.join(","),
         tier,
         country: country || "unknown",
         pricing_currency: currency,
+        ga_client_id: String(ga_client_id || "").slice(0, 120),
+        ga_session_id: String(ga_session_id || "").slice(0, 120),
+        utm_source: String(utm_source || "").slice(0, 120),
+        utm_medium: String(utm_medium || "").slice(0, 120),
+        utm_campaign: String(utm_campaign || "").slice(0, 120),
+        utm_content: String(utm_content || "").slice(0, 120),
+        utm_term: String(utm_term || "").slice(0, 120),
       },
       customer_creation: "if_required",
       allow_promotion_codes: true,
